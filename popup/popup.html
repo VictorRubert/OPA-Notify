@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Opa!Notify</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 22a2.4 2.4 0 0 0 2.35-2h-4.7A2.4 2.4 0 0 0 12 22Zm7-5.2-1.7-2.1V9a5.32 5.32 0 0 0-4.1-5.17V3a1.2 1.2 0 1 0-2.4 0v.83A5.32 5.32 0 0 0 6.7 9v5.7L5 16.8V18h14v-1.2Z"/></svg>
+    </div>
+    <div>
+      <h1>Opa!Notify</h1>
+      <p>Alertas de atendimentos</p>
+    </div>
+    <span class="status-dot" id="statusDot" title="Status"></span>
+  </header>
+
+  <main>
+    <section class="status-card">
+      <div>
+        <span class="status-label">Atendimentos identificados</span>
+        <strong id="currentCount">—</strong>
+      </div>
+      <div class="status-meta">
+        <span id="statusText">Aguardando leitura do Opa...</span>
+        <span id="lastCheck">Sem verificação</span>
+      </div>
+    </section>
+
+    <section class="card history-card">
+      <div class="card-title-row">
+        <h2>Últimos atendimentos recebidos</h2>
+        <span class="history-count" id="historyCount">0/5</span>
+      </div>
+      <div class="history-list" id="attendanceHistory">
+        <p class="history-empty" id="historyEmpty">Nenhum atendimento recebido após a instalação desta versão.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Monitoramento</h2>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Ativar Opa!Notify</strong>
+          <small>Compara os protocolos de “Meus atendimentos”.</small>
+        </span>
+        <input type="checkbox" id="enabled">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Aviso visual</strong>
+          <small>Mostra um cartão no canto superior esquerdo.</small>
+        </span>
+        <input type="checkbox" id="visualEnabled">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Destaque roxo no atendimento novo</strong>
+          <small>Altera o fundo do atendimento mais recente na fila.</small>
+        </span>
+        <input type="checkbox" id="colorHighlightEnabled">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="field-row">
+        <span>
+          <strong>Tipo de preenchimento</strong>
+          <small>Escolha entre degradê, preenchimento total ou somente etiqueta.</small>
+        </span>
+        <select id="highlightFillMode">
+          <option value="soft">Degradê sutil</option>
+          <option value="full">Preenchimento total</option>
+          <option value="tag">Somente Etiqueta</option>
+        </select>
+      </label>
+
+
+
+      <label class="toggle-row">
+        <span>
+          <strong>Destacar motivo não preenchido</strong>
+          <small>Pisca em vermelho 5 vezes e mantém vermelho se estiver em “Selecione...”.</small>
+        </span>
+        <input type="checkbox" id="motivoHighlightEnabled">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Piscar motivo de atendimento</strong>
+          <small>Quando o motivo estiver em “Selecione...”, alterna o destaque vermelho continuamente.</small>
+        </span>
+        <input type="checkbox" id="motivoBlinkEnabled">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Pop-up motivo vazio</strong>
+          <small>Se o motivo estiver vazio, exibe um pop-up para evitar a saída do atendimento sem o devido preenchimento.</small>
+        </span>
+        <input type="checkbox" id="motivoChargeEnabled">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Avisar atendimento finalizado</strong>
+          <small>Notifica quando um protocolo some de “Meus atendimentos”.</small>
+        </span>
+        <input type="checkbox" id="notifyOnFinished">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="field-row">
+        <span>
+          <strong>Duração do aviso</strong>
+          <small>Tempo em que o cartão permanece na tela.</small>
+        </span>
+        <select id="toastDuration">
+          <option value="3000">3 segundos</option>
+          <option value="5000">5 segundos</option>
+          <option value="6000">6 segundos</option>
+          <option value="8000">8 segundos</option>
+          <option value="10000">10 segundos</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Som</h2>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Reproduzir som</strong>
+          <small>Vale para recebimentos e finalizações.</small>
+        </span>
+        <input type="checkbox" id="soundEnabled">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="field-column">
+        <span>Som do alerta</span>
+        <select id="soundPreset">
+          <option value="classic">Clássico</option>
+          <option value="double">Toque duplo</option>
+          <option value="soft">Suave</option>
+          <option value="pop">Pop</option>
+          <option value="custom">Personalizado</option>
+        </select>
+      </label>
+
+      <div class="field-column" id="customSoundArea">
+        <span>Arquivo personalizado</span>
+        <label class="file-button" for="customSoundFile">Escolher MP3, WAV ou OGG</label>
+        <input type="file" id="customSoundFile" accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg">
+        <small id="customSoundName">Nenhum arquivo selecionado</small>
+      </div>
+
+      <label class="volume-row">
+        <span>Volume</span>
+        <input type="range" id="volume" min="0" max="100" step="1">
+        <output id="volumeValue">80%</output>
+      </label>
+
+      <button class="button secondary" id="testSound" type="button">Testar som</button>
+    </section>
+
+    <section class="card">
+      <h2>Teste e manutenção</h2>
+
+      <div class="protocol-highlight-test">
+        <label for="highlightProtocol">
+          <strong>Testar destaque roxo</strong>
+          <small>Digite um protocolo visível em “Meus atendimentos”.</small>
+        </label>
+        <div class="protocol-highlight-row">
+          <input
+            id="highlightProtocol"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="OPA20260012345"
+            maxlength="32"
+          >
+          <button class="button purple compact" id="testHighlight" type="button">Destacar</button>
+        </div>
+        <button class="button clear-highlight" id="clearHighlight" type="button" disabled>
+          Remover marcação atual
+        </button>
+        <p class="hint purple-hint">
+          O preenchimento permanece até outro atendimento ser recebido, outro protocolo ser testado ou ser removido manualmente.
+        </p>
+      </div>
+
+      <button class="button primary" id="testReceivedAlert" type="button">Simular atendimento recebido</button>
+      <button class="button success" id="testFinishedAlert" type="button">Simular atendimento finalizado</button>
+      <button class="button secondary" id="resetBaseline" type="button">Refazer leitura inicial</button>
+      <p class="hint">Ao refazer a leitura, os atendimentos atualmente visíveis viram a nova base e não geram aviso.</p>
+    </section>
+
+    <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+  </main>
+
+  <footer>Opa!Notify 1.3.1</footer>
+  <script src="popup.js"></script>
+</body>
+</html>
