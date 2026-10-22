@@ -1,4 +1,5 @@
-const EXTENSION_VERSION = '1.4.0';
+const EXTENSION_VERSION = '1.4.1';
+const BACKGROUND_SCAN_ALARM = 'opa-background-scan';
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 const SNAPSHOT_STALE_MS = 8 * 60 * 60 * 1000;
 const NOTIFIED_TTL_MS = 24 * 60 * 60 * 1000;
@@ -30,13 +31,47 @@ let scanQueue = Promise.resolve();
 const contentInjectionPromises = new Map();
 
 chrome.runtime.onInstalled.addListener(() => {
-  initializeDefaults().catch(console.error);
+  initializeMonitoring().catch(console.error);
   injectIntoOpenSupportTabs().catch(console.error);
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  initializeDefaults().catch(console.error);
+  initializeMonitoring().catch(console.error);
 });
+
+// Recreate the alarm whenever the MV3 worker is started; alarms may be cleared
+// by a browser restart. One minute also supports the minimum Chrome 109.
+ensureBackgroundAlarm().catch(console.error);
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === BACKGROUND_SCAN_ALARM) scanOpenSupportTabs().catch(console.error);
+});
+chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (change.status === 'complete' && tab.url?.startsWith('https://suporte.ixcsoft.com.br/')) {
+    requestBackgroundScan(tabId).catch(() => undefined);
+  }
+});
+
+async function initializeMonitoring() {
+  await initializeDefaults();
+  await ensureBackgroundAlarm();
+}
+
+async function ensureBackgroundAlarm() {
+  if (!await chrome.alarms.get(BACKGROUND_SCAN_ALARM)) {
+    await chrome.alarms.create(BACKGROUND_SCAN_ALARM, { periodInMinutes: 1 });
+  }
+}
+
+async function requestBackgroundScan(tabId) {
+  await sendToSupportTab(tabId, { type: 'BACKGROUND_ATTENDANCE_SCAN' });
+}
+
+async function scanOpenSupportTabs() {
+  const settings = await getSettings();
+  if (!settings.enabled) return;
+  const tabs = await chrome.tabs.query({ url: 'https://suporte.ixcsoft.com.br/*' });
+  await Promise.allSettled(tabs.filter(tab => tab.id && !tab.discarded).map(tab => requestBackgroundScan(tab.id)));
+}
 
 async function initializeDefaults() {
   const stored = await chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS));

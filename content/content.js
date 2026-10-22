@@ -37,6 +37,7 @@
   let highlightedProtocol = '';
   let observer = null;
   let scanTimer = null;
+  let scanDeadline = 0;
   let periodicTimer = null;
   let candidateFingerprint = null;
   let candidateSince = 0;
@@ -373,8 +374,15 @@
   }
 
   function scheduleScan(delay) {
+    const deadline = Date.now() + delay;
+    if (scanTimer !== null && scanDeadline <= deadline) return;
     clearTimeout(scanTimer);
-    scanTimer = setTimeout(() => scanAndSend().catch(console.error), delay);
+    scanDeadline = deadline;
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      scanDeadline = 0;
+      scanAndSend().catch(console.error);
+    }, delay);
   }
 
   async function scanAndSend() {
@@ -431,15 +439,16 @@
       now - lastSentAt < UNCHANGED_HEARTBEAT_MS
     ) return;
 
-    lastSentFingerprint = fingerprint;
-    lastSentAt = now;
-
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'ATTENDANCE_SCAN',
       items,
       pageUrl: location.href,
       scannedAt: now
-    }).catch(() => undefined);
+    }).catch(() => null);
+    if (response?.success) {
+      lastSentFingerprint = fingerprint;
+      lastSentAt = now;
+    }
   }
 
   function readAttendances(root) {
@@ -492,6 +501,11 @@
     }
 
     if (!isSupportPage) return false;
+
+    if (message?.type === 'BACKGROUND_ATTENDANCE_SCAN') {
+      scanAndSend().then(() => sendResponse({ success: true })).catch(() => sendResponse({ success: false }));
+      return true;
+    }
 
     if (message?.type === 'FOCUS_ATTENDANCE') {
       focusAttendance(message.attendance);

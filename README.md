@@ -1,4 +1,4 @@
-# Opa!Notify v1.4.0
+# Opa!Notify v1.4.1
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -30,7 +30,7 @@ Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada
 
 ## Permissões e limites
 
-A aba do Opa precisa permanecer aberta. O acesso a sites HTTP/HTTPS permite exibir cartões em outras abas; o monitor de atendimentos funciona apenas no Opa. Páginas protegidas do Chrome podem bloquear os cartões.
+A aba do Opa precisa permanecer aberta, com **Meus atendimentos** selecionado e sem busca preenchida. A extensão solicita uma leitura adicional a cada minuto, mesmo quando outra aba está ativa. O Chrome pode atrasar alarmes; abas suspensas ou descartadas e uma fila que o próprio Opa não atualiza em segundo plano impedem a detecção. O acesso a sites HTTP/HTTPS permite exibir cartões em outras abas; o monitor de atendimentos funciona apenas no Opa. Páginas protegidas do Chrome podem bloquear os cartões.
 
 As notificações do sistema exigem permissão e podem ser ocultadas pelo modo Não perturbe. Alterações no HTML do Opa podem exigir atualização dos seletores da extensão.
 

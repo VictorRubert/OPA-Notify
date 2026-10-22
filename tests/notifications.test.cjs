@@ -11,11 +11,14 @@ function setup() {
     remove: async keys => { for (const k of typeof keys === 'string' ? [keys] : keys) delete data[k]; }
   });
   const tabs = [{id: 1, windowId: 3, url: 'https://suporte.ixcsoft.com.br/'}, {id: 2, url: 'https://example.com/'}, {id: 4, url: 'https://blocked.example/'}];
-  let clicked;
+  let clicked, alarmListener;
+  const alarms = {};
   const chrome = {
+    alarms: { get: async name => alarms[name], create: async (name, options) => { alarms[name] = options; }, onAlarm: { addListener(fn) { alarmListener = fn; } } },
     storage: {local: area(local), session: area(session)},
     runtime: {onInstalled:{addListener(){}},onStartup:{addListener(){}},onMessage:{addListener(){}}},
     tabs: {
+      onUpdated: {addListener(){}},
       query: async () => tabs,
       get: async id => { const tab = tabs.find(t => t.id === id); if (!tab) throw Error('Tab closed'); return tab; },
       update: async (...args) => actions.push(['tab', ...args]),
@@ -34,7 +37,7 @@ function setup() {
   const ctx = vm.createContext({chrome, console, setTimeout, clearTimeout});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../background.js'),'utf8'),ctx);
   const attendance = {protocol:'OPA2026123123',company:'Telecom south america'};
-  return {ctx,local,session,messages,notifications,injections,actions,chrome,attendance, click:id=>clicked(id),
+  return {alarms, alarm: name => alarmListener({name}),ctx,local,session,messages,notifications,injections,actions,chrome,attendance, click:id=>clicked(id),
     announce:async (flags={},event='received')=>{ ctx.args=[attendance,{tab:tabs[0]},{visualEnabled:true,otherTabsEnabled:true,systemNotificationsEnabled:true,soundEnabled:false,toastDuration:6000,...flags},event]; await vm.runInContext('announceAttendance(...args)',ctx); }
   };
 }
@@ -71,4 +74,22 @@ test('New settings defaults preserve existing disabled choices',async()=>{
   const s=setup(); s.local.otherTabsEnabled=false;
   await vm.runInContext('initializeDefaults()',s.ctx);
   assert.equal(s.local.otherTabsEnabled,false); assert.equal(s.local.systemNotificationsEnabled,true);
+});
+
+test('Background alarm is created once and scans tabs without requiring an active tab', async()=>{
+  const s=setup();
+  await vm.runInContext('ensureBackgroundAlarm()',s.ctx);
+  assert.equal(s.alarms['opa-background-scan'].periodInMinutes,1);
+  let requested;
+  s.chrome.tabs.query=async filter=>{ requested=filter; return [{id:1,active:false}, {id:5,discarded:true}]; };
+  await vm.runInContext('scanOpenSupportTabs()',s.ctx);
+  assert.equal(requested.url,'https://suporte.ixcsoft.com.br/*');
+  assert.equal(requested.active,undefined);
+  assert(s.messages.some(m=>m.id===1 && m.type==='BACKGROUND_ATTENDANCE_SCAN'));
+  assert(!s.messages.some(m=>m.id===5));
+});
+test('Background scanning respects the master toggle', async()=>{
+  const s=setup(); s.local.enabled=false;
+  await vm.runInContext('scanOpenSupportTabs()',s.ctx);
+  assert.equal(s.messages.length,0);
 });
