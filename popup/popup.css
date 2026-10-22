@@ -386,3 +386,6 @@ footer {
   background: rgba(124, 58, 237, .22);
   border-color: var(--purple-light);
 }
+
+/* Separate attendance highlighting from the reason controls. */
+.toggle-row.visual-group-start { margin-top: 12px; }

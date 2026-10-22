@@ -41,7 +41,7 @@
     </section>
 
     <section class="card">
-      <h2>Monitoramento</h2>
+      <h2>Notificações</h2>
 
       <label class="toggle-row">
         <span>
@@ -61,16 +61,44 @@
         <span class="switch" aria-hidden="true"></span>
       </label>
 
+      <label class="field-row">
+        <span>
+          <strong>Duração do aviso</strong>
+          <small>Tempo em que o cartão permanece na tela.</small>
+        </span>
+        <select id="toastDuration">
+          <option value="3000">3 segundos</option>
+          <option value="5000">5 segundos</option>
+          <option value="6000">6 segundos</option>
+          <option value="8000">8 segundos</option>
+          <option value="10000">10 segundos</option>
+        </select>
+      </label>
+
       <label class="toggle-row">
         <span><strong>Avisos em outras abas</strong><small>Exibe o cartão em outros sites. Páginas protegidas do Chrome não permitem avisos.</small></span>
         <input type="checkbox" id="otherTabsEnabled">
         <span class="switch" aria-hidden="true"></span>
       </label>
+
       <label class="toggle-row">
         <span><strong>Notificações do sistema</strong><small>Avisa também fora do Chrome, conforme as permissões do sistema.</small></span>
         <input type="checkbox" id="systemNotificationsEnabled">
         <span class="switch" aria-hidden="true"></span>
       </label>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Avisar atendimento finalizado</strong>
+          <small>Notifica quando um protocolo some de “Meus atendimentos”.</small>
+        </span>
+        <input type="checkbox" id="notifyOnFinished">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Visual</h2>
 
       <label class="toggle-row">
         <span>
@@ -93,9 +121,7 @@
         </select>
       </label>
 
-
-
-      <label class="toggle-row">
+      <label class="toggle-row visual-group-start">
         <span>
           <strong>Destacar motivo não preenchido</strong>
           <small>Pisca em vermelho 5 vezes e mantém vermelho se estiver em “Selecione...”.</small>
@@ -120,29 +146,6 @@
         </span>
         <input type="checkbox" id="motivoChargeEnabled">
         <span class="switch" aria-hidden="true"></span>
-      </label>
-
-      <label class="toggle-row">
-        <span>
-          <strong>Avisar atendimento finalizado</strong>
-          <small>Notifica quando um protocolo some de “Meus atendimentos”.</small>
-        </span>
-        <input type="checkbox" id="notifyOnFinished">
-        <span class="switch" aria-hidden="true"></span>
-      </label>
-
-      <label class="field-row">
-        <span>
-          <strong>Duração do aviso</strong>
-          <small>Tempo em que o cartão permanece na tela.</small>
-        </span>
-        <select id="toastDuration">
-          <option value="3000">3 segundos</option>
-          <option value="5000">5 segundos</option>
-          <option value="6000">6 segundos</option>
-          <option value="8000">8 segundos</option>
-          <option value="10000">10 segundos</option>
-        </select>
       </label>
     </section>
 
