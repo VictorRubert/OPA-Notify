@@ -1,6 +1,8 @@
 const DEFAULTS = {
   enabled: true,
   visualEnabled: true,
+  otherTabsEnabled: true,
+  systemNotificationsEnabled: true,
   colorHighlightEnabled: true,
   highlightFillMode: 'soft',
   motivoHighlightEnabled: true,
@@ -41,7 +43,7 @@ async function initialize() {
 
 function cacheElements() {
   for (const id of [
-    'enabled', 'visualEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
+    'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
     'volume', 'volumeValue', 'soundPreset', 'toastDuration',
     'customSoundArea', 'customSoundFile', 'customSoundName',
     'testSound', 'testReceivedAlert', 'testFinishedAlert', 'resetBaseline',
@@ -55,6 +57,8 @@ function cacheElements() {
 
 function bindEvents() {
   elements.enabled.addEventListener('change', saveSimpleSettings);
+  elements.otherTabsEnabled.addEventListener('change', saveSimpleSettings);
+  elements.systemNotificationsEnabled.addEventListener('change', saveSimpleSettings);
   elements.visualEnabled.addEventListener('change', saveSimpleSettings);
   elements.colorHighlightEnabled.addEventListener('change', async () => {
     updateHighlightControls();
@@ -101,6 +105,8 @@ async function loadSettings() {
 
   elements.enabled.checked = settings.enabled;
   elements.visualEnabled.checked = settings.visualEnabled;
+  elements.otherTabsEnabled.checked = settings.otherTabsEnabled;
+  elements.systemNotificationsEnabled.checked = settings.systemNotificationsEnabled;
   elements.colorHighlightEnabled.checked = settings.colorHighlightEnabled;
   elements.highlightFillMode.value = normalizeHighlightFillMode(settings.highlightFillMode);
   elements.motivoHighlightEnabled.checked = settings.motivoHighlightEnabled;
@@ -121,6 +127,8 @@ async function saveSimpleSettings() {
   await chrome.storage.local.set({
     enabled: elements.enabled.checked,
     visualEnabled: elements.visualEnabled.checked,
+    otherTabsEnabled: elements.otherTabsEnabled.checked,
+    systemNotificationsEnabled: elements.systemNotificationsEnabled.checked,
     colorHighlightEnabled: elements.colorHighlightEnabled.checked,
     highlightFillMode: normalizeHighlightFillMode(elements.highlightFillMode.value),
     motivoHighlightEnabled: elements.motivoHighlightEnabled.checked,

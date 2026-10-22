@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.3.3';
+const EXTENSION_VERSION = '1.4.0';
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 const SNAPSHOT_STALE_MS = 8 * 60 * 60 * 1000;
 const NOTIFIED_TTL_MS = 24 * 60 * 60 * 1000;
@@ -10,6 +10,8 @@ const MAX_ATTENDANCE_HISTORY = 5;
 const DEFAULT_SETTINGS = Object.freeze({
   enabled: true,
   visualEnabled: true,
+  otherTabsEnabled: true,
+  systemNotificationsEnabled: true,
   colorHighlightEnabled: true,
   highlightFillMode: 'soft',
   motivoHighlightEnabled: true,
@@ -51,6 +53,11 @@ async function initializeDefaults() {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.target === 'offscreen') return false;
+
+  if (message.type === 'OPEN_SOURCE_ATTENDANCE') {
+    openSourceAttendance(message.sourceTabId, message.attendance).then(() => sendResponse({ success: true })).catch(() => sendResponse({ success: false }));
+    return true;
+  }
 
   if (message.type === 'ATTENDANCE_SCAN') {
     scanQueue = scanQueue
@@ -365,14 +372,30 @@ function normalizePendingRemovals(value) {
   return result;
 }
 
-async function announceAttendance(attendance, sender, settings, eventType) {
+async function announceAttendance(attendance, sender, settings, eventType, isTest = false) {
   if (settings.visualEnabled && sender.tab?.id) {
     await sendToSupportTab(sender.tab.id, {
       type: 'SHOW_ATTENDANCE_EVENT',
+      isTest,
       eventType,
       attendance,
       duration: settings.toastDuration
     }).catch(() => undefined);
+  }
+
+  if (settings.otherTabsEnabled && sender.tab?.id) {
+    const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] }).catch(() => []);
+    await Promise.allSettled(tabs.filter(tab => tab.id && tab.id !== sender.tab.id && !tab.url?.startsWith('https://suporte.ixcsoft.com.br/')).map(async tab => {
+      await ensureContentScript(tab.id);
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'SHOW_ATTENDANCE_EVENT', eventType, attendance, isTest,
+        duration: settings.toastDuration, sourceTabId: sender.tab.id
+      });
+    }));
+  }
+
+  if (settings.systemNotificationsEnabled) {
+    await showSystemNotification(attendance, sender.tab?.id, eventType).catch(error => console.warn('Notificação do sistema indisponível:', error));
   }
 
   if (settings.soundEnabled) {
@@ -518,19 +541,7 @@ async function testAlert(eventType) {
     company: 'EMPRESA DE TESTE'
   };
 
-  if (settings.visualEnabled) {
-    await sendToSupportTab(tab.id, {
-      type: 'SHOW_ATTENDANCE_EVENT',
-      eventType,
-      attendance: sample,
-      duration: settings.toastDuration,
-      isTest: true
-    });
-  }
-
-  if (settings.soundEnabled) {
-    await playConfiguredSound(settings);
-  }
+  await announceAttendance(sample, { tab }, settings, eventType, true);
 
   return { success: true };
 }
@@ -692,3 +703,39 @@ async function setupOffscreenDocument() {
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
 }
+
+async function openSourceAttendance(tabId, attendance) {
+  const tab = await chrome.tabs.get(tabId);
+  if (!tab.url?.startsWith('https://suporte.ixcsoft.com.br/')) throw new Error('Aba do Opa indisponível.');
+  await chrome.tabs.update(tabId, { active: true });
+  await chrome.windows.update(tab.windowId, { focused: true });
+  await sendToSupportTab(tabId, { type: 'FOCUS_ATTENDANCE', attendance });
+}
+
+async function showSystemNotification(attendance, sourceTabId, eventType) {
+  const id = `opa:${eventType}:${attendance.protocol}`;
+  const key = `notification:${id}`;
+  await chrome.storage.session.set({ [key]: { sourceTabId, attendance } });
+  try {
+    await chrome.notifications.create(id, {
+      type: 'basic', iconUrl: 'icons/icon128.png',
+      title: eventType === 'finished' ? 'Um atendimento acabou de sair da sua fila!' : 'Um atendimento novo foi recebido!',
+      message: `${attendance.protocol} - ${attendance.company}`,
+      silent: true
+    });
+  } catch (error) {
+    await chrome.storage.session.remove(key);
+    throw error;
+  }
+}
+
+chrome.notifications.onClicked.addListener(async id => {
+  const key = `notification:${id}`;
+  const stored = await chrome.storage.session.get(key);
+  if (stored[key]) await openSourceAttendance(stored[key].sourceTabId, stored[key].attendance).catch(console.warn);
+  await chrome.notifications.clear(id);
+  await chrome.storage.session.remove(key);
+});
+chrome.notifications.onClosed.addListener(id => {
+  chrome.storage.session.remove(`notification:${id}`).catch(console.warn);
+});

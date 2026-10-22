@@ -1,3 +1,18 @@
+# Opa!Notify v1.4.0
+
+## Notificações em outras abas e no sistema
+
+- **Avisos em outras abas**: mostra o mesmo cartão nas páginas HTTP/HTTPS abertas, sem executar nelas o monitor de atendimentos. Ao clicar em um recebimento, volta à janela/aba de origem e abre o atendimento; na saída da fila, o cartão mantém a ação de copiar o protocolo.
+- **Notificações do sistema**: mostra “Um atendimento novo foi recebido!” ou “Um atendimento acabou de sair da sua fila!”, seguido de `protocolo - empresa`. O clique retorna ao Opa. O som continua sendo controlado pela opção de som da extensão, evitando duplicação pelo sistema.
+- As duas opções ficam no popup, são independentes e vêm ativadas. **Aviso visual** controla o cartão na aba do Opa. Desligar **Extensão ativa** interrompe a detecção de novos eventos.
+- A aba do Opa deve permanecer aberta. Páginas internas do Chrome, Chrome Web Store e outras páginas protegidas podem bloquear os cartões. Notificações do sistema dependem das permissões do Chrome e do sistema e do modo Não perturbe.
+- A atualização solicita acesso a sites HTTP/HTTPS para exibir os cartões e a permissão `notifications`. O conteúdo das outras abas não é enviado a servidores; a detecção continua restrita ao Opa.
+- Para instalar, carregue a raiz deste repositório em `chrome://extensions` → Modo do desenvolvedor → Carregar sem compactação. Após atualizar, recarregue a extensão e a aba do Opa.
+- Para testar: use as simulações no popup com a aba do Opa ativa, depois alterne para outro site. Teste também os canais desativados e o clique nos avisos. Monitores reais dependem de uma sessão autorizada no Opa.
+- Testes automatizados: `node --test tests/notifications.test.cjs` (APIs Chrome simuladas). Não substituem a validação em uma instalação real da extensão. O Chromium gerenciado do ambiente em nuvem bloqueia extensões adicionais por política administrativa.
+
+---
+
 # Opa!Notify v1.3.2
 
 Extensão Chrome independente para avisar quando um atendimento é recebido ou finalizado em **Meus atendimentos** no Opa! Suite.

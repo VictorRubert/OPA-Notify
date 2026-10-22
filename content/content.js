@@ -51,7 +51,15 @@
   let allowAttendanceSwitchOnce = false;
   const scriptStartedAt = Date.now();
 
-  initialize().catch(error => console.error('Opa!Notify não iniciou:', error));
+  const isSupportPage = location.origin === 'https://suporte.ixcsoft.com.br';
+  if (!isSupportPage) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && (changes.enabled?.newValue === false || changes.otherTabsEnabled?.newValue === false)) {
+        toastRoot?.remove();
+      }
+    });
+  }
+  if (isSupportPage) initialize().catch(error => console.error('Opa!Notify não iniciou:', error));
 
   async function initialize() {
     await loadSettings();
@@ -476,8 +484,17 @@
         message.attendance,
         message.duration,
         message.isTest === true,
-        message.eventType === 'finished' ? 'finished' : 'received'
+        message.eventType === 'finished' ? 'finished' : 'received',
+        message.sourceTabId
       );
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (!isSupportPage) return false;
+
+    if (message?.type === 'FOCUS_ATTENDANCE') {
+      focusAttendance(message.attendance);
       sendResponse({ success: true });
       return false;
     }
@@ -1091,7 +1108,7 @@
     document.documentElement.appendChild(toastRoot);
   }
 
-  function showToast(attendance, durationValue, isTest, eventType) {
+  function showToast(attendance, durationValue, isTest, eventType, sourceTabId) {
     ensureToastRoot();
 
     const isFinished = eventType === 'finished';
@@ -1192,7 +1209,11 @@
         return;
       }
 
-      if (!isTest) focusAttendance(attendance);
+      if (!isTest) {
+        if (sourceTabId) {
+          await chrome.runtime.sendMessage({ type: 'OPEN_SOURCE_ATTENDANCE', sourceTabId, attendance }).catch(() => undefined);
+        } else focusAttendance(attendance);
+      }
       clearTimeout(timeout);
       progressAnimation.cancel();
       removeToast(toast);
