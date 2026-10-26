@@ -13,6 +13,7 @@ const DEFAULTS = {
   volume: 0.8,
   soundPreset: 'classic',
   toastDuration: 6000,
+  toastPosition: 'top-left',
   customSoundName: ''
 };
 
@@ -44,7 +45,7 @@ async function initialize() {
 function cacheElements() {
   for (const id of [
     'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
-    'volume', 'volumeValue', 'soundPreset', 'toastDuration',
+    'volume', 'volumeValue', 'soundPreset', 'toastDuration', 'toastDurationValue', 'toastPosition',
     'customSoundArea', 'customSoundFile', 'customSoundName',
     'testSound', 'testReceivedAlert', 'testFinishedAlert', 'resetBaseline',
     'feedback', 'currentCount', 'statusText', 'lastCheck', 'statusDot',
@@ -75,7 +76,9 @@ function bindEvents() {
     updateCustomSoundVisibility();
     await saveSimpleSettings();
   });
+  elements.toastDuration.addEventListener('input', updateDurationLabel);
   elements.toastDuration.addEventListener('change', saveSimpleSettings);
+  elements.toastPosition.addEventListener('change', saveSimpleSettings);
   elements.volume.addEventListener('input', () => {
     elements.volumeValue.value = `${elements.volume.value}%`;
   });
@@ -117,7 +120,10 @@ async function loadSettings() {
   elements.volume.value = Math.round(settings.volume * 100);
   elements.volumeValue.value = `${elements.volume.value}%`;
   elements.soundPreset.value = settings.soundPreset;
-  elements.toastDuration.value = String(settings.toastDuration);
+  const duration = Number(settings.toastDuration);
+  elements.toastDuration.value = String(Number.isFinite(duration) ? Math.round(Math.max(5000, Math.min(30000, duration)) / 1000) * 1000 : 6000);
+  updateDurationLabel();
+  elements.toastPosition.value = ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(settings.toastPosition) ? settings.toastPosition : 'top-left';
   elements.customSoundName.textContent = settings.customSoundName || 'Nenhum arquivo selecionado';
   updateCustomSoundVisibility();
   updateHighlightControls();
@@ -138,10 +144,16 @@ async function saveSimpleSettings() {
     soundEnabled: elements.soundEnabled.checked,
     volume: Number(elements.volume.value) / 100,
     soundPreset: elements.soundPreset.value,
-    toastDuration: Number(elements.toastDuration.value)
+    toastDuration: Number(elements.toastDuration.value),
+    toastPosition: elements.toastPosition.value
   });
 
   showFeedback('Configuração salva.');
+}
+
+function updateDurationLabel() {
+  elements.toastDurationValue.value = `${Number(elements.toastDuration.value) / 1000} seg`;
+  elements.toastDuration.setAttribute('aria-valuetext', `${Number(elements.toastDuration.value) / 1000} segundos`);
 }
 
 function updateCustomSoundVisibility() {

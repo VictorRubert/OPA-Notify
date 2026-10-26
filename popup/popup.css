@@ -389,3 +389,11 @@ footer {
 
 /* Separate attendance highlighting from the reason controls. */
 .toggle-row.visual-group-start { margin-top: 12px; }
+
+.duration-slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 12px;
+}
+.duration-slider input { width: 100%; margin: 0; }

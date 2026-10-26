@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.4.1';
+const EXTENSION_VERSION = '1.4.2';
 const BACKGROUND_SCAN_ALARM = 'opa-background-scan';
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 const SNAPSHOT_STALE_MS = 8 * 60 * 60 * 1000;
@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   volume: 0.8,
   soundPreset: 'classic',
   toastDuration: 6000,
+  toastPosition: 'top-left',
   customSoundName: ''
 });
 
@@ -414,7 +415,7 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
       isTest,
       eventType,
       attendance,
-      duration: settings.toastDuration
+      duration: settings.toastDuration, position: settings.toastPosition
     }).catch(() => undefined);
   }
 
@@ -424,7 +425,7 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
       await ensureContentScript(tab.id);
       await chrome.tabs.sendMessage(tab.id, {
         type: 'SHOW_ATTENDANCE_EVENT', eventType, attendance, isTest,
-        duration: settings.toastDuration, sourceTabId: sender.tab.id
+        duration: settings.toastDuration, position: settings.toastPosition, sourceTabId: sender.tab.id
       });
     }));
   }

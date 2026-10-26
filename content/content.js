@@ -494,7 +494,8 @@
         message.duration,
         message.isTest === true,
         message.eventType === 'finished' ? 'finished' : 'received',
-        message.sourceTabId
+        message.sourceTabId,
+        message.position
       );
       sendResponse({ success: true });
       return false;
@@ -1122,11 +1123,19 @@
     document.documentElement.appendChild(toastRoot);
   }
 
-  function showToast(attendance, durationValue, isTest, eventType, sourceTabId) {
+  function showToast(attendance, durationValue, isTest, eventType, sourceTabId, position) {
     ensureToastRoot();
+    const corner = ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(position) ? position : 'top-left';
+    const bottom = corner.startsWith('bottom');
+    const right = corner.endsWith('right');
+    toastRoot.style.top = bottom ? 'auto' : '16px';
+    toastRoot.style.bottom = bottom ? '16px' : 'auto';
+    toastRoot.style.left = right ? 'auto' : '16px';
+    toastRoot.style.right = right ? '16px' : 'auto';
+    toastContainer.style.flexDirection = bottom ? 'column-reverse' : 'column';
 
     const isFinished = eventType === 'finished';
-    const duration = clamp(Number(durationValue) || 6000, 2000, 20000);
+    const duration = clamp(Number(durationValue) || 6000, 5000, 30000);
     const toast = document.createElement('article');
     toast.className = `toast ${isFinished ? 'finished' : 'received'}`;
     toast.setAttribute('role', 'alert');

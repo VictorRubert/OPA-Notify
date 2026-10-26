@@ -1,4 +1,4 @@
-# Opa!Notify v1.4.1
+# Opa!Notify v1.4.2
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -23,7 +23,7 @@ Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada
 
 ## Configurações
 
-- **Notificações:** ativação, aviso visual, duração, avisos em outras abas, notificações do sistema e aviso de atendimento finalizado. Os canais podem ser ativados ou desativados separadamente.
+- **Notificações:** ativação, aviso visual, duração de 5 a 30 segundos, posição em um dos quatro cantos (padrão: superior esquerdo), avisos em outras abas, notificações do sistema e aviso de atendimento finalizado. Os canais podem ser ativados ou desativados separadamente.
 - **Visual:** destaque roxo, tipo de preenchimento e controles de destaque, pisca e pop-up do motivo.
 - **Som:** escolha do áudio, arquivo personalizado, volume e teste.
 - **Teste e manutenção:** simulações, teste e remoção de destaque e **Refazer leitura inicial**, que recria a base sem apagar o histórico.

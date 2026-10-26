@@ -93,3 +93,13 @@ test('Background scanning respects the master toggle', async()=>{
   await vm.runInContext('scanOpenSupportTabs()',s.ctx);
   assert.equal(s.messages.length,0);
 });
+test('Duration and corner reach both Opa and other tabs', async()=>{
+  const s=setup();
+  await s.announce({toastDuration:30000,toastPosition:'bottom-right'});
+  const cards=s.messages.filter(m=>m.type==='SHOW_ATTENDANCE_EVENT');
+  assert.deepEqual(cards.map(m=>m.id),[1,2]);
+  for(const card of cards){
+    assert.equal(card.duration,30000);
+    assert.equal(card.position,'bottom-right');
+  }
+});

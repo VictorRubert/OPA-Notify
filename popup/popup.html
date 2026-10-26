@@ -55,23 +55,28 @@
       <label class="toggle-row">
         <span>
           <strong>Aviso visual</strong>
-          <small>Mostra um cartão no canto superior esquerdo.</small>
+          <small>Mostra um cartão na posição escolhida.</small>
         </span>
         <input type="checkbox" id="visualEnabled">
         <span class="switch" aria-hidden="true"></span>
       </label>
 
+      <div class="field-column">
+        <label for="toastDuration"><strong>Duração do aviso</strong></label>
+        <small>Tempo em que o cartão permanece na tela.</small>
+        <div class="duration-slider">
+          <input type="range" id="toastDuration" min="5000" max="30000" step="1000" aria-describedby="toastDurationValue">
+          <output id="toastDurationValue" for="toastDuration">6 seg</output>
+        </div>
+      </div>
+
       <label class="field-row">
-        <span>
-          <strong>Duração do aviso</strong>
-          <small>Tempo em que o cartão permanece na tela.</small>
-        </span>
-        <select id="toastDuration">
-          <option value="3000">3 segundos</option>
-          <option value="5000">5 segundos</option>
-          <option value="6000">6 segundos</option>
-          <option value="8000">8 segundos</option>
-          <option value="10000">10 segundos</option>
+        <span><strong>Posição do aviso</strong><small>Canto da tela onde os cartões aparecem.</small></span>
+        <select id="toastPosition">
+          <option value="top-left">Superior esquerdo</option>
+          <option value="top-right">Superior direito</option>
+          <option value="bottom-left">Inferior esquerdo</option>
+          <option value="bottom-right">Inferior direito</option>
         </select>
       </label>
 
@@ -225,7 +230,7 @@
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Opa!Notify 1.4.1</footer>
+  <footer>Opa!Notify 1.4.2</footer>
   <script src="popup.js"></script>
 </body>
 </html>
