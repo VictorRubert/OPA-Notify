@@ -24,7 +24,7 @@ function setup() {
       update: async (...args) => actions.push(['tab', ...args]),
       sendMessage: async (id, message) => {
         if (id === 4) throw Error('Protected page');
-        messages.push({id, ...message}); return {ready:true,success:true,version:'1.5.3'};
+        messages.push({id, ...message}); return {ready:true,success:true,version:'1.5.4'};
       }
     },
     scripting: {executeScript:async args => {injections.push(args); throw Error('Protected page');}},
@@ -63,7 +63,7 @@ test('Notification click restores Opa tab and window and opens the attendance',a
   assert.equal(s.actions[0][0],'tab'); assert.equal(s.actions[0][1],1);
   assert.equal(s.actions[1][0],'window'); assert.equal(s.actions[1][1],3);
   assert(s.messages.some(m=>m.type==='FOCUS_ATTENDANCE' && m.attendance.protocol===s.attendance.protocol));
-  assert.equal(Object.keys(s.session).length,0);
+  assert.equal(Object.keys(s.session).filter(key=>key.startsWith('notification:')).length,0);
 });
 test('Opening a source rejects non-Opa tabs',async()=>{
   const s=setup(); s.ctx.target=s.attendance;
@@ -122,7 +122,7 @@ test('Notification click opens the new-domain source tab',async()=>{
 
 test('Visual simulations report delivery failures instead of claiming success',async()=>{
  const s=setup();
- s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.3'}:{success:false,error:'Card render failed'};
+ s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.4'}:{success:false,error:'Card render failed'};
  s.ctx.args=[s.attendance,{tab:{id:1}},{visualEnabled:true,soundEnabled:false},'received',true];
  await assert.rejects(vm.runInContext('announceAttendance(...args)',s.ctx),/Card render failed/);
 });
@@ -141,13 +141,13 @@ test('Simulation chooses the active new-domain tab without relying on the native
 test('Missing Opa tab diagnostic includes running version and host, without URL parameters',async()=>{
  const s=setup();s.chrome.tabs.query=async filter=>filter.active?[{id:9,url:'https://other.example/path?secret=private'}]:[];
  const result=await vm.runInContext('testAlert("received")',s.ctx);
- assert.equal(result.success,false);assert.match(result.error,/1.5.3/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
+ assert.equal(result.success,false);assert.match(result.error,/1.5.4/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
 });
 function queueScenario(){
  const s=setup();let time=1000000;
  s.ctx.Date=class extends Date {static now(){return time;}};
  s.local.soundEnabled=false;s.local.otherTabsEnabled=false;
- return {...s,advance:ms=>{time+=ms;},scan:async items=>{s.ctx.scanItems=items;return vm.runInContext('processAttendanceScan(scanItems,{tab:{id:1}})',s.ctx);}};
+ return {...s,advance:ms=>{time+=ms;},scan:async (items, options = {})=>{s.ctx.scanItems=items;s.ctx.scanOptions=options;return vm.runInContext('processAttendanceScan(scanItems,{tab:{id:1}},scanOptions)',s.ctx);}};
 }
 test('Last attendance leaving an empty queue is confirmed after one confirmation interval',async()=>{
  const s=queueScenario();await s.scan([s.attendance]);s.advance(11000);
@@ -169,4 +169,54 @@ test('A transient disappearance cancels its pending departure',async()=>{
  const restored=await s.scan([s.attendance]);assert.equal(restored.finishedCount,0);
  s.advance(10000);assert.equal((await s.scan([s.attendance])).finishedCount,0);
  assert.equal(s.notifications.filter(n=>n.id.includes(':finished:')).length,0);
+});
+
+test('Reload creates a silent baseline even when the stored queue was empty',async()=>{
+ const s=queueScenario();await s.scan([]);s.advance(20000);
+ const result=await s.scan([s.attendance],{initialRead:true});
+ assert.equal(result.newCount,0);assert.equal(result.baselineCreated,true);
+ assert.equal(s.notifications.length,0);
+ s.advance(11000);assert.equal((await s.scan([s.attendance])).newCount,0);
+});
+test('Reload does not reannounce a protocol previously marked as departed',async()=>{
+ const s=queueScenario();await s.scan([s.attendance]);s.advance(11000);await s.scan([]);s.advance(8000);await s.scan([]);
+ const before=s.notifications.length;
+ const result=await s.scan([s.attendance],{initialRead:true});
+ assert.equal(result.newCount,0);assert.equal(s.notifications.length,before);
+ s.advance(11000);assert.equal((await s.scan([s.attendance])).newCount,0);
+});
+
+test('Departure cards are delivered to other Opa tabs as well as ordinary sites',async()=>{
+ const s=setup();s.chrome.tabs.query=async()=>[{id:1,url:'https://opasuiteapi.ixcsoft.com.br/customer-service/in-progress'},{id:8,url:'https://suporte.ixcsoft.com.br/'}];
+ await s.announce({},'finished');
+ assert(s.messages.some(m=>m.id===8 && m.type==='SHOW_ATTENDANCE_EVENT' && m.eventType==='finished'));
+ assert.equal(s.session['lastDelivery:finished'].sourceVisual,'delivered');
+ assert.equal(s.session['lastDelivery:finished'].otherTabs.delivered,1);
+ assert.equal(s.session['lastDelivery:finished'].system,'delivered');
+});
+test('Delivery diagnostics distinguish visual failure from successful system notification',async()=>{
+ const s=setup();s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.4'}:{success:false,error:'Render failed'};
+ s.ctx.console={...console,warn(){}};
+ await s.announce({otherTabsEnabled:false},'finished');
+ const delivery=s.session['lastDelivery:finished'];assert.equal(delivery.sourceVisual,'failed');assert.equal(delivery.system,'delivered');
+ assert(!JSON.stringify(delivery).includes(s.attendance.protocol));assert(!JSON.stringify(delivery).includes(s.attendance.company));
+});
+
+test('Previously opened destination tabs can still receive cards after an extension update',async()=>{
+ const s=setup();const originalSend=s.chrome.tabs.sendMessage;
+ s.chrome.tabs.sendMessage=async(id,message)=>{
+  if(id===2 && message.type==='OPA_NOTIFY_CONTENT_PING')return {ready:true,version:'1.5.3'};
+  return originalSend(id,message);
+ };
+ await s.announce({},'finished');
+ assert(s.messages.some(m=>m.id===2 && m.type==='SHOW_ATTENDANCE_EVENT' && m.eventType==='finished'));
+ assert.equal(s.session['lastDelivery:finished'].otherTabs.delivered,1);
+});
+test('Copied diagnostics expose counts and delivery results without queue/customer data',async()=>{
+ const s=setup();s.local.pendingRemovals={[s.attendance.protocol]:{attendance:s.attendance}};
+ s.local.lastDetectedCount=1;
+ await s.announce({otherTabsEnabled:false},'finished');
+ const diagnostic=await vm.runInContext('getDiagnostics()',s.ctx);
+ assert.equal(diagnostic.pendingRemovalCount,1);assert.equal(diagnostic.deliveries.finished.system,'delivered');
+ const text=JSON.stringify(diagnostic);assert(!text.includes(s.attendance.protocol));assert(!text.includes(s.attendance.company));
 });

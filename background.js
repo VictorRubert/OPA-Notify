@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.5.3';
+const EXTENSION_VERSION = '1.5.4';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -101,12 +101,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'ATTENDANCE_SCAN') {
     scanQueue = scanQueue
-      .then(() => processAttendanceScan(message.items, sender))
+      .then(() => processAttendanceScan(message.items, sender, { initialRead: message.initialRead === true }))
       .then(result => sendResponse(result))
       .catch(error => {
         console.error('Falha ao processar leitura da fila:', error);
         sendResponse({ success: false, error: error.message });
       });
+    return true;
+  }
+
+  if (message.type === 'GET_DIAGNOSTICS') {
+    getDiagnostics().then(result => sendResponse({ success: true, ...result })).catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
 
@@ -163,7 +168,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-async function processAttendanceScan(rawItems, sender) {
+async function processAttendanceScan(rawItems, sender, { initialRead = false } = {}) {
   const now = Date.now();
   const currentItems = normalizeAttendances(rawItems);
   const currentMap = new Map(currentItems.map(item => [item.protocol, item]));
@@ -187,7 +192,7 @@ async function processAttendanceScan(rawItems, sender) {
   const snapshotIsStale = previousSavedAt === 0 || now - previousSavedAt > SNAPSHOT_STALE_MS;
   const forceBaselineUntil = Number(stored.forceBaselineUntil) || 0;
   const storedGraceUntil = Number(stored.baselineGraceUntil) || 0;
-  const baselineMode = snapshotIsStale || now < forceBaselineUntil || now < storedGraceUntil;
+  const baselineMode = initialRead || snapshotIsStale || now < forceBaselineUntil || now < storedGraceUntil;
 
   const recentlyNotified = pruneTimestampMap(stored.recentlyNotified, now);
   const recentlyFinished = pruneTimestampMap(stored.recentlyFinished, now);
@@ -252,7 +257,7 @@ async function processAttendanceScan(rawItems, sender) {
     recentlyNotified[item.protocol] = now;
   }
 
-  const baselineGraceUntil = snapshotIsStale || now < forceBaselineUntil
+  const baselineGraceUntil = initialRead || snapshotIsStale || now < forceBaselineUntil
     ? Math.max(storedGraceUntil, now + BASELINE_GRACE_MS)
     : storedGraceUntil;
 
@@ -405,6 +410,7 @@ function normalizePendingRemovals(value) {
 }
 
 async function announceAttendance(attendance, sender, settings, eventType, isTest = false) {
+  const delivery = { at: Date.now(), eventType, sourceVisual: settings.visualEnabled ? 'unavailable' : 'disabled', otherTabs: { enabled: settings.otherTabsEnabled, attempted: 0, delivered: 0, failed: 0 }, system: settings.systemNotificationsEnabled ? 'pending' : 'disabled' };
   if (settings.visualEnabled && sender.tab?.id) {
     await sendToSupportTab(sender.tab.id, {
       type: 'SHOW_ATTENDANCE_EVENT',
@@ -412,7 +418,8 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
       eventType,
       attendance,
       duration: settings.toastDuration, position: settings.toastPosition
-    }).catch(error => {
+    }).then(() => { delivery.sourceVisual = 'delivered'; }).catch(error => {
+      delivery.sourceVisual = 'failed';
       if (isTest) throw error;
       console.warn('Falha ao exibir aviso no Opa:', error);
     });
@@ -420,17 +427,25 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
 
   if (settings.otherTabsEnabled && sender.tab?.id) {
     const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] }).catch(() => []);
-    await Promise.allSettled(tabs.filter(tab => tab.id && tab.id !== sender.tab.id && !isSupportUrl(tab.url)).map(async tab => {
-      await ensureContentScript(tab.id);
-      await chrome.tabs.sendMessage(tab.id, {
+    const targets = tabs.filter(tab => tab.id && tab.id !== sender.tab.id);
+    delivery.otherTabs.attempted = targets.length;
+    const results = await Promise.allSettled(targets.map(async tab => {
+      await ensureContentScript(tab.id, { requireMonitor: false });
+      const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'SHOW_ATTENDANCE_EVENT', eventType, attendance, isTest,
         duration: settings.toastDuration, position: settings.toastPosition, sourceTabId: sender.tab.id
       });
+      if (!response?.success) throw new Error('Card delivery not confirmed');
     }));
+    delivery.otherTabs.delivered = results.filter(result => result.status === 'fulfilled').length;
+    delivery.otherTabs.failed = results.length - delivery.otherTabs.delivered;
   }
 
   if (settings.systemNotificationsEnabled) {
-    await showSystemNotification(attendance, sender.tab?.id, eventType).catch(error => console.warn('Notificação do sistema indisponível:', error));
+    await showSystemNotification(attendance, sender.tab?.id, eventType).then(() => { delivery.system = 'delivered'; }).catch(error => {
+      delivery.system = 'failed';
+      console.warn('Notificação do sistema indisponível:', error);
+    });
   }
 
   if (settings.soundEnabled) {
@@ -438,6 +453,7 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
       console.warn('Não foi possível tocar o som:', error);
     });
   }
+  await chrome.storage.session.set({ [`lastDelivery:${eventType}`]: delivery }).catch(() => undefined);
 }
 
 async function getSettings() {
@@ -502,7 +518,7 @@ async function injectIntoOpenSupportTabs() {
   }
 }
 
-async function ensureContentScript(tabId) {
+async function ensureContentScript(tabId, { requireMonitor = true } = {}) {
   if (!tabId) throw new Error('Aba do Opa não identificada.');
 
   try {
@@ -510,7 +526,7 @@ async function ensureContentScript(tabId) {
       type: 'OPA_NOTIFY_CONTENT_PING'
     });
     if (response?.ready) {
-      if (response.version !== EXTENSION_VERSION) throw new Error('Recarregue a aba do Opa: o monitor da página está desatualizado.');
+      if (requireMonitor && response.version !== EXTENSION_VERSION) throw new Error('Recarregue a aba do Opa: o monitor da página está desatualizado.');
       return;
     }
   } catch (error) {
@@ -785,3 +801,28 @@ chrome.notifications.onClicked.addListener(async id => {
 chrome.notifications.onClosed.addListener(id => {
   chrome.storage.session.remove(`notification:${id}`).catch(console.warn);
 });
+
+async function getDiagnostics() {
+  const active = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = active.find(tab => isSupportUrl(tab.url)) || (await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS }))[0];
+  const settings = await getSettings();
+  const stored = await chrome.storage.local.get(['lastCheckAt', 'lastDetectedCount', 'pendingRemovals']);
+  const deliveries = await chrome.storage.session.get(['lastDelivery:received', 'lastDelivery:finished']);
+  let monitor = null;
+  let error = null;
+  if (tab?.id) {
+    try { monitor = await sendToSupportTab(tab.id, { type: 'GET_MONITOR_DIAGNOSTICS' }); }
+    catch (failure) { error = failure.message; }
+  }
+  return {
+    version: EXTENSION_VERSION,
+    host: tab ? new URL(tab.url).hostname : null,
+    enabled: settings.enabled, notifyOnFinished: settings.notifyOnFinished,
+    visualEnabled: settings.visualEnabled, otherTabsEnabled: settings.otherTabsEnabled,
+    systemNotificationsEnabled: settings.systemNotificationsEnabled,
+    lastCheckAt: stored.lastCheckAt || null, lastDetectedCount: stored.lastDetectedCount ?? null,
+    pendingRemovalCount: Object.keys(stored.pendingRemovals || {}).length,
+    deliveries: { received: deliveries['lastDelivery:received'] || null, finished: deliveries['lastDelivery:finished'] || null },
+    monitor, error
+  };
+}

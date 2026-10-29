@@ -1,4 +1,4 @@
-# Opa!Notify v1.5.3
+# Opa!Notify v1.5.4
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -27,7 +27,7 @@ O cartão de recebimento abre o atendimento; o cartão de saída copia o protoco
 3. Clique em **Carregar sem compactação** e selecione a pasta que contém `manifest.json`.
 4. Abra o Opa e selecione **Meus atendimentos**.
 
-Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada, recarregue a extensão e a aba do Opa. A primeira leitura cria uma base silenciosa, sem avisar sobre atendimentos já existentes.
+Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada, recarregue a extensão e a aba do Opa. A primeira leitura após cada recarga cria uma base silenciosa, sem avisar sobre atendimentos já existentes.
 
 ## Configurações
 
@@ -44,13 +44,13 @@ As notificações do sistema exigem permissão e podem ser ocultadas pelo modo N
 
 ## Testes
 
-Use as simulações do popup com o Opa aberto. Para os testes automatizados de lógica, execute com Node.js:
+Use as simulações do popup com o Opa aberto. Em caso de falha, **Copiar diagnóstico**, em Teste e manutenção, copia as versões, configurações dos canais, resultados de entrega e nomes/contagens dos eventos da fila, sem conversas ou dados dos clientes. Para os testes automatizados de lógica, execute com Node.js:
 
 ```sh
 node --test tests/*.test.cjs
 ```
 
-Para verificar a leitura e os destaques nas duas interfaces com exemplos fictícios, execute `node tests/interfaces.browser.cjs` em um ambiente com Playwright e Chromium (`CHROMIUM_PATH` permite escolher o executável).
+Para verificar a leitura e os destaques nas duas interfaces com exemplos fictícios, execute `node tests/interfaces.browser.cjs`. O ciclo integrado de recarga, recebimento e saída é verificado com `node tests/queue-flow.browser.cjs` em um ambiente com Playwright e Chromium (`CHROMIUM_PATH` permite escolher o executável).
 
 Os testes usam APIs Chrome e eventos de rede simulados; a integração deve ser validada em uma instalação real da extensão.
 

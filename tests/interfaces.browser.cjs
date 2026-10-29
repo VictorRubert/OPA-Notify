@@ -35,7 +35,7 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
    await page.waitForTimeout(50);
    await page.evaluate(()=>scan());await page.evaluate(()=>{clock+=11000;});await page.evaluate(()=>scan());
    let scans=await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN'));
-   assert(scans.length>0,mode+': no snapshot');assert.equal(scans.at(-1).items.length,mode==='modern'?2:1);
+   assert(scans.length>0,mode+': no snapshot');assert.equal(scans[0].initialRead,true);assert.equal(scans.at(-1).items.length,mode==='modern'?2:1);
    if(mode==='legacy'){
     // The scheduled confirmation must bypass the unchanged-list heartbeat.
     await page.evaluate(()=>flushTimers());await page.waitForTimeout(30);
@@ -47,6 +47,7 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
     await page.evaluate(()=>{clock+=8000;window.nextScanIn=0;for(const [id,timer] of [...timers])if(timer.delay===8000){timers.delete(id);timer.fn();}});
     await page.waitForTimeout(30);
     assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN').length),before+1);
+    assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN').at(-1).initialRead),false);
    }
    if(mode==='modern'){
     // Removing a virtualized row must not remove it from the queue snapshot.

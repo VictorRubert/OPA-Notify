@@ -31,6 +31,8 @@
   const CARD_SELECTOR = `.chat[data-id], ${NEW_CARD}`;
   let queuePages = new Map();
   let newQueue = null;
+  let initialSnapshotPending = true;
+  const queueDiagnostics = [];
   let newMetadata = new Map();
 
   function isNewInterface() { return Boolean(document.querySelector(NEW_LIST)); }
@@ -52,6 +54,17 @@
     if (event.source !== window || event.origin !== location.origin || !isSupportPage) return;
     const data = event.data;
     if (data?.source !== 'opa-notify-queue-v1') return;
+    if (data.kind === 'diagnostic') {
+      if (typeof data.event !== 'string' || !(data.event.startsWith('customer-services-ui:customer-service-queues:in-progress:') || data.event === 'socket-close')) return;
+      queueDiagnostics.push({
+        at: Date.now(), event: data.event.slice(0, 180), direction: data.direction === 'sent' ? 'sent' : 'received',
+        count: Number.isInteger(data.count) ? data.count : null,
+        page: Number.isInteger(data.page) ? data.page : null,
+        hasMore: typeof data.hasMore === 'boolean' ? data.hasMore : null
+      });
+      if (queueDiagnostics.length > 40) queueDiagnostics.shift();
+      return;
+    }
     if (data.kind === 'reasons') {
       const metadata = newMetadata.get(data.id);
       if (metadata && Number.isInteger(data.reasons) && data.reasons >= 0) {
@@ -514,11 +527,13 @@
 
     const response = await chrome.runtime.sendMessage({
       type: 'ATTENDANCE_SCAN',
+      initialRead: initialSnapshotPending,
       items,
       pageUrl: location.href,
       scannedAt: now
     }).catch(() => null);
     if (response?.success) {
+      initialSnapshotPending = false;
       lastSentFingerprint = fingerprint;
       lastSentAt = now;
       if (Number.isFinite(response.nextScanIn) && response.nextScanIn > 0) {
@@ -566,7 +581,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.5.3' });
+      sendResponse({ success: true, ready: true, version: '1.5.4' });
       return false;
     }
 
@@ -588,6 +603,11 @@
     }
 
     if (!isSupportPage) return false;
+
+    if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
+      sendResponse({ success: true, version: '1.5.4', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, initialSnapshotPending, events: queueDiagnostics });
+      return false;
+    }
 
     if (message?.type === 'BACKGROUND_ATTENDANCE_SCAN') {
       scanAndSend().then(() => sendResponse({ success: true })).catch(() => sendResponse({ success: false }));

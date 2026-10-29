@@ -47,7 +47,7 @@ function cacheElements() {
     'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
     'volume', 'volumeValue', 'soundPreset', 'toastDuration', 'toastDurationValue', 'toastPosition',
     'customSoundArea', 'customSoundFile', 'customSoundName',
-    'testSound', 'testReceivedAlert', 'testFinishedAlert', 'resetBaseline',
+    'copyDiagnostics', 'testSound', 'testReceivedAlert', 'testFinishedAlert', 'resetBaseline',
     'feedback', 'currentCount', 'statusText', 'lastCheck', 'statusDot',
     'attendanceHistory', 'historyEmpty', 'historyCount',
     'highlightProtocol', 'testHighlight', 'clearHighlight'
@@ -84,6 +84,7 @@ function bindEvents() {
   });
   elements.volume.addEventListener('change', saveSimpleSettings);
   elements.customSoundFile.addEventListener('change', handleCustomSoundFile);
+  elements.copyDiagnostics.addEventListener('click', copyDiagnostics);
   elements.testSound.addEventListener('click', testSound);
   elements.testReceivedAlert.addEventListener('click', () => testAlert('received'));
   elements.testFinishedAlert.addEventListener('click', () => testAlert('finished'));
@@ -486,4 +487,13 @@ function formatHistoryDate(timestamp) {
     day: '2-digit',
     month: '2-digit'
   })}, ${time}`;
+}
+
+async function copyDiagnostics() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_DIAGNOSTICS' });
+    if (!response?.success) throw new Error(response?.error || 'Falha ao obter diagnóstico.');
+    await navigator.clipboard.writeText(JSON.stringify(response, null, 2));
+    showFeedback('Diagnóstico copiado, sem mensagens ou dados dos clientes.');
+  } catch (error) { showFeedback(error.message, true); }
 }

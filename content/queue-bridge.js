@@ -6,6 +6,16 @@
   const EVENT = 'customer-services-ui:customer-service-queues:in-progress:list';
   const NativeSocket = globalThis.WebSocket;
   let buffered = [];
+  const diagnostics = [];
+  const diagnose = (parsed, direction) => {
+    const name = parsed?.[0];
+    if (typeof name !== 'string' || !name.startsWith('customer-services-ui:customer-service-queues:in-progress:')) return;
+    const payload = parsed[1];
+    const message = { source: 'opa-notify-queue-v1', kind: 'diagnostic', event: name.replace(/[a-f0-9]{24}/gi, '<id>').replace(/OPA\d{6,}/g, '<protocol>'), direction, count: Array.isArray(payload) ? payload.length : Array.isArray(payload?.items) ? payload.items.length : null, page: Number.isInteger(payload?.page) ? payload.page : null, hasMore: typeof payload?.hasMore === 'boolean' ? payload.hasMore : null };
+    diagnostics.push(message);
+    if (diagnostics.length > 40) diagnostics.shift();
+    window.postMessage(message, location.origin);
+  };
   const publish = (kind, data) => {
     if (kind === 'reset' || (kind === 'page' && data.page === 1)) buffered = [];
     const message = { source: 'opa-notify-queue-v1', kind, ...data };
@@ -14,6 +24,7 @@
   };
   window.addEventListener('message', event => {
     if (event.source === window && event.origin === location.origin && event.data?.source === 'opa-notify-content-ready-v1') {
+      for (const message of diagnostics) window.postMessage(message, location.origin);
       for (const message of buffered) window.postMessage(message, location.origin);
     }
   });
@@ -37,12 +48,14 @@
     const send = socket.send;
     socket.send = function(value) {
       const result = Reflect.apply(send, this, arguments);
+      diagnose(decode(value), 'sent');
       const payload = packet(value);
       if (payload && !(Number(payload.page) > 1) && (!collectingPages || Number(payload.page) === 1)) { observesQueue = true; publish('reset', {}); }
       return result;
     };
     socket.addEventListener('message', event => {
       const parsed = decode(event.data);
+      diagnose(parsed, 'received');
       const route = parsed?.[1];
       if (route && typeof route._id === 'string' && Array.isArray(route.motivos)) {
         // A detail update changes only the reason state, never queue membership.
