@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.5.1';
+const EXTENSION_VERSION = '1.5.2';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -421,7 +421,10 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
       eventType,
       attendance,
       duration: settings.toastDuration, position: settings.toastPosition
-    }).catch(() => undefined);
+    }).catch(error => {
+      if (isTest) throw error;
+      console.warn('Falha ao exibir aviso no Opa:', error);
+    });
   }
 
   if (settings.otherTabsEnabled && sender.tab?.id) {
@@ -515,8 +518,12 @@ async function ensureContentScript(tabId) {
     const response = await chrome.tabs.sendMessage(tabId, {
       type: 'OPA_NOTIFY_CONTENT_PING'
     });
-    if (response?.ready) return;
-  } catch (_) {
+    if (response?.ready) {
+      if (response.version !== EXTENSION_VERSION) throw new Error('Recarregue a aba do Opa: o monitor da página está desatualizado.');
+      return;
+    }
+  } catch (error) {
+    if (error.message?.includes('monitor da página está desatualizado')) throw error;
     // A página já estava aberta quando a extensão foi instalada ou recarregada.
   }
 
@@ -553,7 +560,11 @@ async function ensureContentScript(tabId) {
 
 async function sendToSupportTab(tabId, message) {
   await ensureContentScript(tabId);
-  return chrome.tabs.sendMessage(tabId, message);
+  const response = await chrome.tabs.sendMessage(tabId, message);
+  if (!response || response.success === false) {
+    throw new Error(response?.error || 'A página do Opa não confirmou a operação. Recarregue a aba e tente novamente.');
+  }
+  return response;
 }
 
 function delay(milliseconds) {
@@ -561,17 +572,20 @@ function delay(milliseconds) {
 }
 
 async function testAlert(eventType) {
-  const tabs = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-    url: SUPPORT_URL_PATTERNS
-  });
-
-  const tab = tabs[0];
+  // Resolve the active tab directly rather than hiding URL/permission failures
+  // behind the native URL filter. Prefer it when both Opa versions are open.
+  const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  let tab = activeTabs.find(candidate => isSupportUrl(candidate.url));
+  if (!tab) {
+    const supportTabs = await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS });
+    tab = supportTabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+  }
   if (!tab?.id) {
+    let host = 'endereço indisponível';
+    try { host = new URL(activeTabs[0]?.url).hostname; } catch {}
     return {
       success: false,
-      error: 'Abra o Opa! Suite em uma aba para testar o aviso visual.'
+      error: `Opa!Notify ${EXTENSION_VERSION}: nenhuma aba do Opa encontrada (aba atual: ${host}). Recarregue a extensão em chrome://extensions e depois recarregue o Opa.`
     };
   }
 

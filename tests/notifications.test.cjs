@@ -24,7 +24,7 @@ function setup() {
       update: async (...args) => actions.push(['tab', ...args]),
       sendMessage: async (id, message) => {
         if (id === 4) throw Error('Protected page');
-        messages.push({id, ...message}); return {ready:true};
+        messages.push({id, ...message}); return {ready:true,success:true,version:'1.5.2'};
       }
     },
     scripting: {executeScript:async args => {injections.push(args); throw Error('Protected page');}},
@@ -118,4 +118,28 @@ test('Notification click opens the new-domain source tab',async()=>{
  s.ctx.target=s.attendance;
  await vm.runInContext('openSourceAttendance(1,target)',s.ctx);
  assert(s.messages.some(m=>m.type==='FOCUS_ATTENDANCE'));
+});
+
+test('Visual simulations report delivery failures instead of claiming success',async()=>{
+ const s=setup();
+ s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.2'}:{success:false,error:'Card render failed'};
+ s.ctx.args=[s.attendance,{tab:{id:1}},{visualEnabled:true,soundEnabled:false},'received',true];
+ await assert.rejects(vm.runInContext('announceAttendance(...args)',s.ctx),/Card render failed/);
+});
+test('An outdated page monitor produces an explicit reload instruction',async()=>{
+ const s=setup();s.chrome.tabs.sendMessage=async()=>({ready:true});
+ await assert.rejects(vm.runInContext('ensureContentScript(1)',s.ctx),/Recarregue a aba/);
+});
+
+test('Simulation chooses the active new-domain tab without relying on the native URL filter',async()=>{
+ const s=setup();
+ s.chrome.tabs.query=async filter=>filter.active?[{id:7,url:'https://opasuiteapi.ixcsoft.com.br/customer-service/in-progress'}]:[];
+ s.local.soundEnabled=false;s.local.systemNotificationsEnabled=false;s.local.otherTabsEnabled=false;
+ await vm.runInContext('testAlert("received")',s.ctx);
+ assert(s.messages.some(m=>m.id===7 && m.type==='SHOW_ATTENDANCE_EVENT'));
+});
+test('Missing Opa tab diagnostic includes running version and host, without URL parameters',async()=>{
+ const s=setup();s.chrome.tabs.query=async filter=>filter.active?[{id:9,url:'https://other.example/path?secret=private'}]:[];
+ const result=await vm.runInContext('testAlert("received")',s.ctx);
+ assert.equal(result.success,false);assert.match(result.error,/1.5.2/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
 });

@@ -559,20 +559,24 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true });
+      sendResponse({ success: true, ready: true, version: '1.5.2' });
       return false;
     }
 
     if (message?.type === 'SHOW_ATTENDANCE_EVENT') {
-      showToast(
-        message.attendance,
-        message.duration,
-        message.isTest === true,
-        message.eventType === 'finished' ? 'finished' : 'received',
-        message.sourceTabId,
-        message.position
-      );
-      sendResponse({ success: true });
+      try {
+        showToast(
+          message.attendance,
+          message.duration,
+          message.isTest === true,
+          message.eventType === 'finished' ? 'finished' : 'received',
+          message.sourceTabId,
+          message.position
+        );
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: `Não foi possível exibir o cartão: ${error.message}` });
+      }
       return false;
     }
 

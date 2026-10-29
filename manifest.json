@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Opa!Notify",
   "short_name": "Opa!Notify",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Avisa quando um atendimento é recebido ou finalizado em Meus atendimentos no Opa! Suite, mantém os 5 últimos recebimentos, destaca o atendimento novo e permite destacar motivos não preenchidos.",
   "minimum_chrome_version": "111",
   "permissions": [

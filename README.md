@@ -1,4 +1,4 @@
-# Opa!Notify v1.5.1
+# Opa!Notify v1.5.2
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
