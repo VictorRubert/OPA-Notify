@@ -1,8 +1,10 @@
-# Opa!Notify v1.5.0
+# Opa!Notify v1.5.1
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
 ## Compatibilidade
+
+Endereços suportados: `https://suporte.ixcsoft.com.br/` e `https://opasuiteapi.ixcsoft.com.br/customer-service/in-progress`. As rotas dos dois domínios são reconhecidas, permitindo navegar sem perder o monitoramento.
 
 Reconhece automaticamente a interface antiga e a nova (Chrome 111 ou superior). Na interface nova, acompanha as listas completas recebidas pela conexão Socket.IO já aberta pelo Opa; rolar a fila não é tratado como saída de atendimento. Usa o nome do contato quando não há empresa vinculada.
 

@@ -13,9 +13,9 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/lib/chromium/chromium',headless:true});
  try{
-  for(const mode of ['legacy','modern']){
+  for(const {mode,origin} of [{mode:'legacy',origin:'https://suporte.ixcsoft.com.br'},{mode:'modern',origin:'https://suporte.ixcsoft.com.br'},{mode:'modern',origin:'https://opasuiteapi.ixcsoft.com.br'}]){
    const page=await browser.newPage(); const errors=[];page.on('pageerror',error=>errors.push(error.message));
-   await page.route('https://suporte.ixcsoft.com.br/**',route=>route.fulfill({contentType:'text/html',body:mode==='legacy'?legacy:modern}));
+   await page.route(origin+'/**',route=>route.fulfill({contentType:'text/html',body:mode==='legacy'?legacy:modern}));
    await page.addInitScript({content:`
     window.clock = Date.now(); Date.now=()=>clock;
     window.timers=new Map(); let next=0;
@@ -26,7 +26,7 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
     window.scan=()=>new Promise(resolve=>listener({type:'BACKGROUND_ATTENDANCE_SCAN'},{},resolve));
     window.WebSocket=class {constructor(){window.socket=this;this.listeners={};}addEventListener(name,fn){this.listeners[name]=fn;}send(){} receive(data){this.listeners.message({data});}};
    `+fs.readFileSync(path.join(root,'content/queue-bridge.js'),'utf8')});
-   await page.goto('https://suporte.ixcsoft.com.br/');
+   await page.goto(origin+'/customer-service/in-progress');
    if(mode==='modern'){
     // First list arrives before isolated content script: exercises replay.
     await page.evaluate(({EVENT,items})=>{new WebSocket('wss://suporte.ixcsoft.com.br/socket.io/');socket.receive('42'+JSON.stringify([EVENT,{items,page:1,hasMore:false}]));},{EVENT,items:[item('attendance-1','OPA20261145'),item('attendance-2','OPA20261146')]});
@@ -69,7 +69,7 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
     const before=scans.length;await page.evaluate(()=>{clock+=16000;});await page.evaluate(()=>scan());
     assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN').length),before);
    }
-   assert.deepEqual(errors,[]);await page.close();console.log('PASS:',mode,'DOM integration');
+   assert.deepEqual(errors,[]);await page.close();console.log('PASS:',mode,origin,'DOM integration');
   }
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

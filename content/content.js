@@ -104,7 +104,7 @@
   let allowAttendanceSwitchOnce = false;
   const scriptStartedAt = Date.now();
 
-  const isSupportPage = location.origin === 'https://suporte.ixcsoft.com.br';
+  const isSupportPage = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'].includes(location.origin);
   if (!isSupportPage) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && (changes.enabled?.newValue === false || changes.otherTabsEnabled?.newValue === false)) {

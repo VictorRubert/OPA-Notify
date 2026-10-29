@@ -34,7 +34,7 @@ function setup() {
       onClicked:{addListener(fn){clicked=fn;}},onClosed:{addListener(){}}
     }
   };
-  const ctx = vm.createContext({chrome, console, setTimeout, clearTimeout});
+  const ctx = vm.createContext({chrome, console, setTimeout, clearTimeout, URL});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../background.js'),'utf8'),ctx);
   const attendance = {protocol:'OPA2026123123',company:'Telecom south america'};
   return {alarms, alarm: name => alarmListener({name}),ctx,local,session,messages,notifications,injections,actions,chrome,attendance, click:id=>clicked(id),
@@ -83,7 +83,7 @@ test('Background alarm is created once and scans tabs without requiring an activ
   let requested;
   s.chrome.tabs.query=async filter=>{ requested=filter; return [{id:1,active:false}, {id:5,discarded:true}]; };
   await vm.runInContext('scanOpenSupportTabs()',s.ctx);
-  assert.equal(requested.url,'https://suporte.ixcsoft.com.br/*');
+  assert.deepEqual(Array.from(requested.url),['https://suporte.ixcsoft.com.br/*','https://opasuiteapi.ixcsoft.com.br/*']);
   assert.equal(requested.active,undefined);
   assert(s.messages.some(m=>m.id===1 && m.type==='BACKGROUND_ATTENDANCE_SCAN'));
   assert(!s.messages.some(m=>m.id===5));
@@ -102,4 +102,20 @@ test('Duration and corner reach both Opa and other tabs', async()=>{
     assert.equal(card.duration,30000);
     assert.equal(card.position,'bottom-right');
   }
+});
+
+test('Both exact Opa origins are accepted, lookalike and unrelated URLs rejected',()=>{
+ const s=setup();
+ for(const url of ['https://suporte.ixcsoft.com.br/', 'https://opasuiteapi.ixcsoft.com.br/customer-service/in-progress']){
+  s.ctx.url=url; assert.equal(vm.runInContext('isSupportUrl(url)',s.ctx),true);
+ }
+ for(const url of ['https://opasuiteapi.ixcsoft.com.br.evil.example/', 'http://opasuiteapi.ixcsoft.com.br/', 'https://example.com/', 'invalid']){
+  s.ctx.url=url; assert.equal(vm.runInContext('isSupportUrl(url)',s.ctx),false);
+ }
+});
+test('Notification click opens the new-domain source tab',async()=>{
+ const s=setup(); s.chrome.tabs.get=async()=>({id:1,windowId:3,url:'https://opasuiteapi.ixcsoft.com.br/customer-service/in-progress'});
+ s.ctx.target=s.attendance;
+ await vm.runInContext('openSourceAttendance(1,target)',s.ctx);
+ assert(s.messages.some(m=>m.type==='FOCUS_ATTENDANCE'));
 });

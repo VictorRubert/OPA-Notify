@@ -1,4 +1,9 @@
-const EXTENSION_VERSION = '1.5.0';
+const EXTENSION_VERSION = '1.5.1';
+const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
+const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
+function isSupportUrl(value) {
+  try { return SUPPORT_ORIGINS.includes(new URL(value).origin); } catch { return false; }
+}
 const BACKGROUND_SCAN_ALARM = 'opa-background-scan';
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 const SNAPSHOT_STALE_MS = 8 * 60 * 60 * 1000;
@@ -47,7 +52,7 @@ chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === BACKGROUND_SCAN_ALARM) scanOpenSupportTabs().catch(console.error);
 });
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
-  if (change.status === 'complete' && tab.url?.startsWith('https://suporte.ixcsoft.com.br/')) {
+  if (change.status === 'complete' && isSupportUrl(tab.url)) {
     requestBackgroundScan(tabId).catch(() => undefined);
   }
 });
@@ -70,7 +75,7 @@ async function requestBackgroundScan(tabId) {
 async function scanOpenSupportTabs() {
   const settings = await getSettings();
   if (!settings.enabled) return;
-  const tabs = await chrome.tabs.query({ url: 'https://suporte.ixcsoft.com.br/*' });
+  const tabs = await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS });
   await Promise.allSettled(tabs.filter(tab => tab.id && !tab.discarded).map(tab => requestBackgroundScan(tab.id)));
 }
 
@@ -421,7 +426,7 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
 
   if (settings.otherTabsEnabled && sender.tab?.id) {
     const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] }).catch(() => []);
-    await Promise.allSettled(tabs.filter(tab => tab.id && tab.id !== sender.tab.id && !tab.url?.startsWith('https://suporte.ixcsoft.com.br/')).map(async tab => {
+    await Promise.allSettled(tabs.filter(tab => tab.id && tab.id !== sender.tab.id && !isSupportUrl(tab.url)).map(async tab => {
       await ensureContentScript(tab.id);
       await chrome.tabs.sendMessage(tab.id, {
         type: 'SHOW_ATTENDANCE_EVENT', eventType, attendance, isTest,
@@ -488,7 +493,7 @@ async function resetBaseline() {
     baselineGraceUntil: now + BASELINE_GRACE_MS
   });
 
-  const tabs = await chrome.tabs.query({ url: 'https://suporte.ixcsoft.com.br/*' });
+  const tabs = await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS });
   for (const tab of tabs) {
     if (!tab.id) continue;
     await sendToSupportTab(tab.id, { type: 'REQUEST_IMMEDIATE_SCAN' }).catch(() => undefined);
@@ -496,7 +501,7 @@ async function resetBaseline() {
 }
 
 async function injectIntoOpenSupportTabs() {
-  const tabs = await chrome.tabs.query({ url: 'https://suporte.ixcsoft.com.br/*' });
+  const tabs = await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS });
   for (const tab of tabs) {
     if (!tab.id) continue;
     await ensureContentScript(tab.id).catch(() => undefined);
@@ -559,7 +564,7 @@ async function testAlert(eventType) {
   const tabs = await chrome.tabs.query({
     active: true,
     currentWindow: true,
-    url: 'https://suporte.ixcsoft.com.br/*'
+    url: SUPPORT_URL_PATTERNS
   });
 
   const tab = tabs[0];
@@ -598,7 +603,7 @@ async function setHighlightedAttendance(protocolValue, source) {
     highlightedAttendanceUpdatedAt: Date.now()
   });
 
-  const tabs = await chrome.tabs.query({ url: 'https://suporte.ixcsoft.com.br/*' });
+  const tabs = await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS });
   for (const tab of tabs) {
     if (!tab.id) continue;
     await sendToSupportTab(tab.id, {
@@ -620,7 +625,7 @@ async function clearHighlightedAttendance() {
     'highlightedAttendanceUpdatedAt'
   ]);
 
-  const tabs = await chrome.tabs.query({ url: 'https://suporte.ixcsoft.com.br/*' });
+  const tabs = await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS });
   for (const tab of tabs) {
     if (!tab.id) continue;
     await sendToSupportTab(tab.id, {
@@ -644,7 +649,7 @@ async function testHighlightProtocol(protocolValue) {
     };
   }
 
-  const tabs = await chrome.tabs.query({ url: 'https://suporte.ixcsoft.com.br/*' });
+  const tabs = await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS });
   if (tabs.length === 0) {
     return {
       success: false,
@@ -742,7 +747,7 @@ function clamp(value, min, max) {
 
 async function openSourceAttendance(tabId, attendance) {
   const tab = await chrome.tabs.get(tabId);
-  if (!tab.url?.startsWith('https://suporte.ixcsoft.com.br/')) throw new Error('Aba do Opa indisponível.');
+  if (!isSupportUrl(tab.url)) throw new Error('Aba do Opa indisponível.');
   await chrome.tabs.update(tabId, { active: true });
   await chrome.windows.update(tab.windowId, { focused: true });
   await sendToSupportTab(tabId, { type: 'FOCUS_ATTENDANCE', attendance });
