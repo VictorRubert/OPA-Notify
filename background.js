@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.4.2';
+const EXTENSION_VERSION = '1.5.0';
 const BACKGROUND_SCAN_ALARM = 'opa-background-scan';
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 const SNAPSHOT_STALE_MS = 8 * 60 * 60 * 1000;

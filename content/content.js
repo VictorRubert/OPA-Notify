@@ -26,6 +26,58 @@
     'opa-notify-current-attendance--tag'
   ];
 
+  const NEW_LIST = '[data-tutorial="customer-service-list"]';
+  const NEW_CARD = `${NEW_LIST} [itemid]`;
+  const CARD_SELECTOR = `.chat[data-id], ${NEW_CARD}`;
+  let queuePages = new Map();
+  let newQueue = null;
+  let newMetadata = new Map();
+
+  function isNewInterface() { return Boolean(document.querySelector(NEW_LIST)); }
+  function isPersonalNewQueue() {
+    const filter = document.querySelector('[data-tutorial="customer-service-view-selector"]');
+    const tab = document.querySelector('[data-tutorial="customer-service-queue-in-progress"]');
+    return normalizeInterfaceText(filter?.textContent) === 'meus atendimentos'
+      && Boolean(tab && (tab.getAttribute('data-active') === 'true' || (tab.classList.contains('bg-gray-200') && tab.classList.contains('border-gray-400'))));
+  }
+  function cardId(card) { return card?.getAttribute('itemid') || card?.getAttribute('data-id') || ''; }
+  function cardClickTarget(card) { return card?.querySelector('.corpo') || card?.querySelector(':scope > button') || card; }
+  function currentNewAttendance() { return document.querySelector('[data-customer-service-id][data-protocol]'); }
+  function currentCard() {
+    if (!isNewInterface()) return document.querySelector('.chat.selected[data-id]');
+    const id = currentNewAttendance()?.getAttribute('data-customer-service-id');
+    return [...document.querySelectorAll(NEW_CARD)].find(card => cardId(card) === id) || null;
+  }
+  window.addEventListener('message', event => {
+    if (event.source !== window || event.origin !== location.origin || !isSupportPage) return;
+    const data = event.data;
+    if (data?.source !== 'opa-notify-queue-v1') return;
+    if (data.kind === 'reasons') {
+      const metadata = newMetadata.get(data.id);
+      if (metadata && Number.isInteger(data.reasons) && data.reasons >= 0) {
+        metadata.reasons = data.reasons;
+        scheduleMotivoHighlight();
+      }
+      return;
+    }
+    if (data.kind === 'reset') { queuePages.clear(); newQueue = null; return; }
+    if (data.kind !== 'page' || !Array.isArray(data.items) || !Number.isInteger(data.page) || data.page < 1 || data.page > 1000 || typeof data.hasMore !== 'boolean') return;
+    if (!isPersonalNewQueue() || normalizeInterfaceText(data.view) !== 'meus atendimentos') { queuePages.clear(); newQueue = null; return; }
+    if (data.page === 1) { queuePages.clear(); newQueue = null; }
+    const valid = data.items.every(item => item && typeof item.id === 'string' && item.id && /^OPA\d{6,}$/.test(item.protocol) && typeof item.company === 'string' && item.company);
+    if (!valid) { queuePages.clear(); newQueue = null; return; }
+    queuePages.set(data.page, data.items);
+    if (data.hasMore) return;
+    for (let page = 1; page <= data.page; page++) if (!queuePages.has(page)) return;
+    const items = [...Array(data.page)].flatMap((_, index) => queuePages.get(index + 1));
+    if (new Set(items.map(item => item.id)).size !== items.length || new Set(items.map(item => item.protocol)).size !== items.length) { newQueue = null; return; }
+    newMetadata = new Map(items.map(item => [item.id, item]));
+    newQueue = items.map(({ id, protocol, company }) => ({ id, protocol, company }));
+    applyHighlightedAttendance();
+    scheduleMotivoHighlight();
+    scheduleScan(0);
+  });
+
   let settings = {
     enabled: true,
     colorHighlightEnabled: true,
@@ -73,6 +125,7 @@
     observePage();
     scheduleScan(1200);
     periodicTimer = setInterval(() => scheduleScan(0), SCAN_INTERVAL_MS);
+    window.postMessage({ source: 'opa-notify-content-ready-v1' }, location.origin);
   }
 
   async function loadSettings() {
@@ -148,11 +201,11 @@
 
     if (!isOngoingAttendancesModuleActive()) return;
 
-    const clickedChat = event.target?.closest?.('.chat[data-id]');
+    const clickedChat = event.target?.closest?.(CARD_SELECTOR);
     if (!clickedChat) return;
 
-    const currentChat = document.querySelector('.chat.selected[data-id]');
-    if (!currentChat || currentChat === clickedChat) return;
+    const currentChat = currentCard() || currentNewAttendance();
+    if (!currentChat || currentChat === clickedChat || cardId(clickedChat) === currentChat.getAttribute('data-customer-service-id')) return;
 
     if (!settings.motivoChargeEnabled) return;
 
@@ -168,7 +221,7 @@
 
     showMotivoSwitchModal(() => {
       allowAttendanceSwitchOnce = true;
-      const clickable = clickedChat.querySelector('.corpo') || clickedChat;
+      const clickable = cardClickTarget(clickedChat);
       setTimeout(() => clickable.click(), 0);
     });
   }
@@ -354,6 +407,11 @@
         }
       }
 
+      if (isNewInterface()) {
+        shouldScanAttendances ||= mutations.some(m => m.target?.closest?.(NEW_LIST) || [...m.addedNodes || []].some(n => n.matches?.(NEW_LIST) || n.querySelector?.(NEW_LIST)));
+        shouldCheckMotivo = true;
+      }
+
       if (shouldScanAttendances) {
         applyHighlightedAttendance();
         scheduleScan(350);
@@ -369,7 +427,7 @@
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['title', 'aria-expanded', 'aria-selected']
+      attributeFilter: ['title', 'aria-expanded', 'aria-selected', 'data-active', 'data-customer-service-id', 'data-protocol']
     });
   }
 
@@ -386,30 +444,41 @@
   }
 
   async function scanAndSend() {
-    if (!isOngoingAttendancesModuleActive()) {
-      candidateFingerprint = null;
-      candidateSince = 0;
-      return;
+    let items;
+    if (isNewInterface()) {
+      if (!isPersonalNewQueue()) { newQueue = null; queuePages.clear(); return; }
+      if (document.querySelector(`${NEW_LIST} input:not([type=checkbox]):not([type=radio])`)?.value?.trim()) return;
+      if (newQueue === null) return;
+      items = newQueue;
+      applyHighlightedAttendance();
+      scheduleMotivoHighlight();
+    } else {
+      if (!isOngoingAttendancesModuleActive()) {
+        candidateFingerprint = null;
+        candidateSince = 0;
+        return;
+      }
+
+      const selectedButton = document.querySelector(
+        'button[data-id="meus_atendimentos"].selected_filtro_user_status'
+      );
+
+      if (!selectedButton) return;
+
+      const list = selectedButton.closest('.list');
+      const listRoot = list?.querySelector('.list_dados')
+        || selectedButton.closest('.list_dados');
+
+      if (!listRoot) return;
+
+      const searchInput = list?.querySelector('.list_select_input');
+      if (searchInput && searchInput.value.trim() !== '') return;
+
+      items = readAttendances(listRoot);
+      applyHighlightedAttendance(listRoot);
+      scheduleMotivoHighlight();
+
     }
-
-    const selectedButton = document.querySelector(
-      'button[data-id="meus_atendimentos"].selected_filtro_user_status'
-    );
-
-    if (!selectedButton) return;
-
-    const list = selectedButton.closest('.list');
-    const listRoot = list?.querySelector('.list_dados')
-      || selectedButton.closest('.list_dados');
-
-    if (!listRoot) return;
-
-    const searchInput = list?.querySelector('.list_select_input');
-    if (searchInput && searchInput.value.trim() !== '') return;
-
-    const items = readAttendances(listRoot);
-    applyHighlightedAttendance(listRoot);
-    scheduleMotivoHighlight();
 
     if (items.length === 0 && Date.now() - scriptStartedAt < INITIAL_EMPTY_DELAY_MS) {
       scheduleScan(1000);
@@ -453,7 +522,7 @@
 
   function readAttendances(root) {
     const result = new Map();
-    const chats = root.querySelectorAll('.chat[data-id]');
+    const chats = root.querySelectorAll(CARD_SELECTOR);
 
     for (const chat of chats) {
       const company = chat.querySelector('.corpo > .title')?.textContent?.trim();
@@ -468,6 +537,12 @@
   }
 
   function extractProtocol(chat) {
+    if (chat.hasAttribute('data-protocol')) return normalizeProtocol(chat.getAttribute('data-protocol')) || null;
+    if (chat.hasAttribute('itemid')) {
+      const id = cardId(chat);
+      const current = currentNewAttendance();
+      return normalizeProtocol(newMetadata.get(id)?.protocol || (current?.getAttribute('data-customer-service-id') === id ? current.getAttribute('data-protocol') : '')) || null;
+    }
     const body = chat.querySelector('.corpo');
     if (!body) return null;
 
@@ -509,9 +584,8 @@
     }
 
     if (message?.type === 'FOCUS_ATTENDANCE') {
-      focusAttendance(message.attendance);
-      sendResponse({ success: true });
-      return false;
+      focusAttendance(message.attendance).then(found => sendResponse({ success: found })).catch(() => sendResponse({ success: false }));
+      return true;
     }
 
     if (message?.type === 'CHECK_ATTENDANCE_PROTOCOL') {
@@ -541,6 +615,7 @@
 
 
   function isOngoingAttendancesModuleActive() {
+    if (isNewInterface()) return isPersonalNewQueue();
     const selectedItem = document.querySelector(ONGOING_ATTENDANCES_SELECTOR);
     if (!selectedItem) return false;
 
@@ -575,7 +650,7 @@
     const protocol = normalizeProtocol(protocolValue);
     if (!protocol) return null;
 
-    return [...root.querySelectorAll('.chat[data-id]')]
+    return [...root.querySelectorAll(CARD_SELECTOR)]
       .find(chat => extractProtocol(chat) === protocol) || null;
   }
 
@@ -585,13 +660,13 @@
     const style = document.createElement('style');
     style.id = HIGHLIGHT_STYLE_ID;
     style.textContent = `
-      .chat.${HIGHLIGHT_CLASS} {
+      .${HIGHLIGHT_CLASS} {
         position: relative !important;
         overflow: hidden !important;
         transition: background .18s ease, box-shadow .18s ease, filter .18s ease;
       }
 
-      .chat.${HIGHLIGHT_CLASS}.opa-notify-current-attendance--soft {
+      .${HIGHLIGHT_CLASS}.opa-notify-current-attendance--soft {
         background:
           linear-gradient(90deg,
             rgba(83, 55, 125, .78) 0%,
@@ -603,30 +678,34 @@
           inset 6px 0 0 rgba(124, 58, 237, .40) !important;
       }
 
-      .chat.${HIGHLIGHT_CLASS}.opa-notify-current-attendance--full {
+      .${HIGHLIGHT_CLASS}.opa-notify-current-attendance--full {
         background: #3c275c !important;
         box-shadow:
           inset 0 0 0 1px rgba(167, 139, 250, .30),
           0 0 12px rgba(124, 58, 237, .18) !important;
       }
 
-      .chat.${HIGHLIGHT_CLASS}.opa-notify-current-attendance--tag {
+      .${HIGHLIGHT_CLASS}.opa-notify-current-attendance--tag {
         background: inherit !important;
         box-shadow: none !important;
       }
 
-      .chat.${HIGHLIGHT_CLASS}:hover {
+      .${HIGHLIGHT_CLASS} > [data-sidebar="menu-button"] {
+        background: transparent !important;
+      }
+
+      .${HIGHLIGHT_CLASS}:hover {
         filter: brightness(1.06);
       }
 
-      .chat.${HIGHLIGHT_CLASS} .tags {
+      .${HIGHLIGHT_CLASS} .tags {
         display: flex !important;
         flex-wrap: wrap !important;
         align-items: center !important;
         gap: 4px !important;
       }
 
-      .chat.${HIGHLIGHT_CLASS} .${NEW_TAG_CLASS} {
+      .${HIGHLIGHT_CLASS} .${NEW_TAG_CLASS} {
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -682,7 +761,7 @@
   function applyHighlightedAttendance(root = document) {
     ensureHighlightStyles();
 
-    const chats = [...document.querySelectorAll('.chat[data-id]')];
+    const chats = [...document.querySelectorAll(CARD_SELECTOR)];
     let found = false;
 
     for (const chat of chats) {
@@ -757,7 +836,9 @@
   }
 
   function getOrCreateTagsContainer(chat) {
-    const body = chat.querySelector('.corpo') || chat;
+    const body = chat.hasAttribute('itemid')
+      ? chat.querySelector(':scope > button > div:last-child') || cardClickTarget(chat)
+      : cardClickTarget(chat);
     let tags = body.querySelector(':scope > .tags')
       || body.querySelector('.tags')
       || chat.querySelector('.tags');
@@ -916,6 +997,7 @@
   }
 
   function findMotivoRenderedElement() {
+    if (isNewInterface()) return document.querySelector('[data-tutorial="chat-panel-reasons"] [polaris-label="btn-reason"]');
     const direct = document.getElementById('select2-select_motivos-container')
       || document.querySelector('[id^="select2-select_motivos"][id$="-container"]');
 
@@ -956,6 +1038,10 @@
   }
 
   function isMotivoEmpty(rendered) {
+    if (isNewInterface()) {
+      const id = currentNewAttendance()?.getAttribute('data-customer-service-id');
+      return newMetadata.get(id)?.reasons === 0;
+    }
     const title = normalizeMotivoText(rendered.getAttribute('title'));
     const text = normalizeMotivoText(rendered.textContent);
 
@@ -1290,19 +1376,37 @@
     setTimeout(() => toast.remove(), 220);
   }
 
-  function focusAttendance(attendance) {
+  async function focusAttendance(attendance) {
     let target = null;
+    if (isNewInterface()) {
+      target = [...document.querySelectorAll(NEW_CARD)].find(card => cardId(card) === attendance?.id || extractProtocol(card) === attendance?.protocol);
+    }
 
-    if (attendance?.id) {
+    if (!target && isNewInterface() && newQueue) {
+      const index = newQueue.findIndex(item => item.id === attendance?.id || item.protocol === attendance?.protocol);
+      const list = document.querySelector(NEW_LIST);
+      const scroller = [...list.querySelectorAll('div')].find(element => element.scrollHeight > element.clientHeight && /auto|scroll/.test(getComputedStyle(element).overflowY));
+      if (index >= 0 && scroller) {
+        // The list uses variable-height virtualization; estimate from the full
+        // extent, then wait for React to mount the requested row.
+        for (let attempt = 0; attempt < 4 && !target; attempt++) {
+          scroller.scrollTop = Math.max(0, index * scroller.scrollHeight / newQueue.length - (attempt % 2) * scroller.clientHeight / 2);
+          scroller.dispatchEvent(new Event('scroll'));
+          await new Promise(resolve => setTimeout(resolve, 150));
+          target = [...document.querySelectorAll(NEW_CARD)].find(card => cardId(card) === attendance?.id || extractProtocol(card) === attendance?.protocol);
+        }
+      }
+    }
+    if (!target && attendance?.id && !isNewInterface()) {
       target = document.querySelector(`.chat[data-id="${cssEscape(attendance.id)}"]`);
     }
 
     if (!target && attendance?.protocol) {
-      target = [...document.querySelectorAll('.chat[data-id]')]
+      target = [...document.querySelectorAll(CARD_SELECTOR)]
         .find(chat => extractProtocol(chat) === attendance.protocol);
     }
 
-    if (!target) return;
+    if (!target) return false;
 
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
@@ -1316,8 +1420,9 @@
       target.style.outlineOffset = previousOutlineOffset;
     }, 2200);
 
-    const clickable = target.querySelector('.corpo') || target;
+    const clickable = cardClickTarget(target);
     setTimeout(() => clickable.click(), 250);
+    return true;
   }
 
   function cssEscape(value) {

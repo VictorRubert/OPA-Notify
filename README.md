@@ -1,6 +1,12 @@
-# Opa!Notify v1.4.2
+# Opa!Notify v1.5.0
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
+
+## Compatibilidade
+
+Reconhece automaticamente a interface antiga e a nova (Chrome 111 ou superior). Na interface nova, acompanha as listas completas recebidas pela conexão Socket.IO já aberta pelo Opa; rolar a fila não é tratado como saída de atendimento. Usa o nome do contato quando não há empresa vinculada.
+
+Após instalar ou atualizar, **recarregue a aba do Opa** para conectar o monitor à nova interface. Mantenha **Em andamento → Meus atendimentos** selecionado, sem busca ou filtros adicionais. Listas paginadas só são comparadas depois de recebidas todas as páginas. Sem uma lista completa, a extensão aguarda em vez de gerar alertas de saída.
 
 ## Funcionalidades
 
@@ -39,9 +45,11 @@ As notificações do sistema exigem permissão e podem ser ocultadas pelo modo N
 Use as simulações do popup com o Opa aberto. Para os testes automatizados de lógica, execute com Node.js:
 
 ```sh
-node --test tests/notifications.test.cjs
+node --test tests/*.test.cjs
 ```
 
-Os testes usam APIs Chrome simuladas; a integração deve ser validada em uma instalação real da extensão.
+Para verificar a leitura e os destaques nas duas interfaces com exemplos fictícios, execute `node tests/interfaces.browser.cjs` em um ambiente com Playwright e Chromium (`CHROMIUM_PATH` permite escolher o executável).
+
+Os testes usam APIs Chrome e eventos de rede simulados; a integração deve ser validada em uma instalação real da extensão.
 
 Licença: [MIT](LICENSE).
