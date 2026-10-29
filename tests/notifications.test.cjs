@@ -24,7 +24,7 @@ function setup() {
       update: async (...args) => actions.push(['tab', ...args]),
       sendMessage: async (id, message) => {
         if (id === 4) throw Error('Protected page');
-        messages.push({id, ...message}); return {ready:true,success:true,version:'1.5.2'};
+        messages.push({id, ...message}); return {ready:true,success:true,version:'1.5.3'};
       }
     },
     scripting: {executeScript:async args => {injections.push(args); throw Error('Protected page');}},
@@ -122,7 +122,7 @@ test('Notification click opens the new-domain source tab',async()=>{
 
 test('Visual simulations report delivery failures instead of claiming success',async()=>{
  const s=setup();
- s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.2'}:{success:false,error:'Card render failed'};
+ s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.3'}:{success:false,error:'Card render failed'};
  s.ctx.args=[s.attendance,{tab:{id:1}},{visualEnabled:true,soundEnabled:false},'received',true];
  await assert.rejects(vm.runInContext('announceAttendance(...args)',s.ctx),/Card render failed/);
 });
@@ -141,5 +141,32 @@ test('Simulation chooses the active new-domain tab without relying on the native
 test('Missing Opa tab diagnostic includes running version and host, without URL parameters',async()=>{
  const s=setup();s.chrome.tabs.query=async filter=>filter.active?[{id:9,url:'https://other.example/path?secret=private'}]:[];
  const result=await vm.runInContext('testAlert("received")',s.ctx);
- assert.equal(result.success,false);assert.match(result.error,/1.5.2/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
+ assert.equal(result.success,false);assert.match(result.error,/1.5.3/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
+});
+function queueScenario(){
+ const s=setup();let time=1000000;
+ s.ctx.Date=class extends Date {static now(){return time;}};
+ s.local.soundEnabled=false;s.local.otherTabsEnabled=false;
+ return {...s,advance:ms=>{time+=ms;},scan:async items=>{s.ctx.scanItems=items;return vm.runInContext('processAttendanceScan(scanItems,{tab:{id:1}})',s.ctx);}};
+}
+test('Last attendance leaving an empty queue is confirmed after one confirmation interval',async()=>{
+ const s=queueScenario();await s.scan([s.attendance]);s.advance(11000);
+ const first=await s.scan([]);assert.equal(first.finishedCount,0);
+ assert.equal(first.nextScanIn,8000);
+ s.advance(8000);
+ const confirmed=await s.scan([]);assert.equal(confirmed.finishedCount,1);
+ assert.equal(s.notifications.filter(n=>n.id.includes(':finished:')).length,1);
+ s.advance(16000);assert.equal((await s.scan([])).finishedCount,0);
+});
+test('A confirmed departure can be notified again if that protocol reenters and leaves',async()=>{
+ const s=queueScenario();await s.scan([s.attendance]);s.advance(11000);await s.scan([]);s.advance(8000);await s.scan([]);
+ s.advance(1000);await s.scan([s.attendance]);s.advance(1000);await s.scan([]);s.advance(8000);
+ assert.equal((await s.scan([])).finishedCount,1);
+ assert.equal(s.notifications.filter(n=>n.id.includes(':finished:')).length,2);
+});
+test('A transient disappearance cancels its pending departure',async()=>{
+ const s=queueScenario();await s.scan([s.attendance]);s.advance(11000);await s.scan([]);s.advance(4000);
+ const restored=await s.scan([s.attendance]);assert.equal(restored.finishedCount,0);
+ s.advance(10000);assert.equal((await s.scan([s.attendance])).finishedCount,0);
+ assert.equal(s.notifications.filter(n=>n.id.includes(':finished:')).length,0);
 });

@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.5.2';
+const EXTENSION_VERSION = '1.5.3';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -9,7 +9,6 @@ const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 const SNAPSHOT_STALE_MS = 8 * 60 * 60 * 1000;
 const NOTIFIED_TTL_MS = 24 * 60 * 60 * 1000;
 const BASELINE_GRACE_MS = 10 * 1000;
-const EMPTY_CONFIRMATION_MS = 8 * 1000;
 const REMOVAL_CONFIRMATION_MS = 8 * 1000;
 const MAX_ATTENDANCE_HISTORY = 5;
 
@@ -195,23 +194,12 @@ async function processAttendanceScan(rawItems, sender) {
   const pendingRemovals = normalizePendingRemovals(stored.pendingRemovals);
   const pendingBeforeScan = new Set(Object.keys(pendingRemovals));
 
-  if (!baselineMode && currentItems.length === 0 && previousItems.length > 0) {
-    const firstEmptyAt = Number(stored.emptyScanFirstAt) || 0;
-
-    if (!firstEmptyAt || now - firstEmptyAt < EMPTY_CONFIRMATION_MS) {
-      await chrome.storage.local.set({
-        emptyScanFirstAt: firstEmptyAt || now,
-        lastCheckAt: now
-      });
-
-      return {
-        success: true,
-        baselineCreated: false,
-        emptyPending: true,
-        currentCount: previousItems.length,
-        newCount: 0,
-        finishedCount: 0
-      };
+  // A protocol that reenters after a confirmed departure starts a new cycle.
+  // Short disappearances remain in pendingRemovals and do not trigger this.
+  for (const item of currentItems) {
+    if (recentlyFinished[item.protocol]) {
+      delete recentlyFinished[item.protocol];
+      delete recentlyNotified[item.protocol];
     }
   }
 
@@ -324,7 +312,10 @@ async function processAttendanceScan(rawItems, sender) {
     baselineCreated: false,
     currentCount: currentItems.length,
     newCount: newAttendances.length,
-    finishedCount: finishedAttendances.length
+    finishedCount: finishedAttendances.length,
+    nextScanIn: Object.keys(pendingRemovals).length
+      ? Math.max(1, Math.min(...Object.values(pendingRemovals).map(pending => REMOVAL_CONFIRMATION_MS - (now - pending.firstMissingAt))))
+      : 0
   };
 }
 

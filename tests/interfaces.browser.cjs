@@ -22,7 +22,7 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
     window.setTimeout=(fn,delay)=>{timers.set(++next,{fn,delay});return next;};window.clearTimeout=id=>timers.delete(id); window.setInterval=()=>0;window.clearInterval=()=>{};
     window.flushTimers=()=>{const callbacks=[...timers.values()];timers.clear();for(const {fn} of callbacks)fn();};
     window.sent=[];window.storage={motivoBlinkEnabled:false};
-    window.chrome={storage:{local:{get:async()=>storage},onChanged:{addListener(){}}},runtime:{onMessage:{addListener(fn){window.listener=fn;}},sendMessage:async msg=>{sent.push(msg);return {success:true};}}};
+    window.chrome={storage:{local:{get:async()=>storage},onChanged:{addListener(){}}},runtime:{onMessage:{addListener(fn){window.listener=fn;}},sendMessage:async msg=>{sent.push(msg);return {success:true,nextScanIn:window.nextScanIn||0};}}};
     window.scan=()=>new Promise(resolve=>listener({type:'BACKGROUND_ATTENDANCE_SCAN'},{},resolve));
     window.WebSocket=class {constructor(){window.socket=this;this.listeners={};}addEventListener(name,fn){this.listeners[name]=fn;}send(){} receive(data){this.listeners.message({data});}};
    `+fs.readFileSync(path.join(root,'content/queue-bridge.js'),'utf8')});
@@ -36,6 +36,18 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
    await page.evaluate(()=>scan());await page.evaluate(()=>{clock+=11000;});await page.evaluate(()=>scan());
    let scans=await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN'));
    assert(scans.length>0,mode+': no snapshot');assert.equal(scans.at(-1).items.length,mode==='modern'?2:1);
+   if(mode==='legacy'){
+    // The scheduled confirmation must bypass the unchanged-list heartbeat.
+    await page.evaluate(()=>flushTimers());await page.waitForTimeout(30);
+    await page.evaluate(()=>{window.nextScanIn=8000;clock+=16000;});
+    await page.evaluate(()=>scan());
+    const before=await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN').length);
+    const scheduled=await page.evaluate(()=>[...timers.values()].some(timer=>timer.delay===8000));
+    assert.equal(scheduled,true);
+    await page.evaluate(()=>{clock+=8000;window.nextScanIn=0;for(const [id,timer] of [...timers])if(timer.delay===8000){timers.delete(id);timer.fn();}});
+    await page.waitForTimeout(30);
+    assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN').length),before+1);
+   }
    if(mode==='modern'){
     // Removing a virtualized row must not remove it from the queue snapshot.
     await page.locator('[itemid="attendance-2"]').evaluate(el=>el.remove());
@@ -64,6 +76,10 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
     await page.evaluate(({EVENT,items})=>socket.receive('42'+JSON.stringify([EVENT,{items,page:2,hasMore:false}])),{EVENT,items:[item('attendance-2','OPA20261146',['reason'])]});
     await page.waitForTimeout(30);await page.evaluate(()=>scan());await page.evaluate(()=>{clock+=1000;});await page.evaluate(()=>scan());
     scans=await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN'));assert.equal(scans.at(-1).items.length,2);
+    // A complete empty Socket.IO snapshot must reach the removal processor.
+    await page.evaluate(({EVENT})=>socket.receive('42'+JSON.stringify([EVENT,{items:[],page:1,hasMore:false}])),{EVENT});
+    await page.waitForTimeout(30);await page.evaluate(()=>scan());await page.evaluate(()=>{clock+=1000;});await page.evaluate(()=>scan());
+    scans=await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN'));assert.equal(scans.at(-1).items.length,0);
     // A different filter never produces a personal queue scan.
     await page.locator('[data-tutorial="customer-service-view-selector"]').evaluate(el=>el.textContent='Todos em andamento');
     const before=scans.length;await page.evaluate(()=>{clock+=16000;});await page.evaluate(()=>scan());

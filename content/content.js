@@ -90,6 +90,7 @@
   let observer = null;
   let scanTimer = null;
   let scanDeadline = 0;
+  let forceNextScan = false;
   let periodicTimer = null;
   let candidateFingerprint = null;
   let candidateSince = 0;
@@ -431,7 +432,8 @@
     });
   }
 
-  function scheduleScan(delay) {
+  function scheduleScan(delay, force = false) {
+    forceNextScan ||= force;
     const deadline = Date.now() + delay;
     if (scanTimer !== null && scanDeadline <= deadline) return;
     clearTimeout(scanTimer);
@@ -439,11 +441,13 @@
     scanTimer = setTimeout(() => {
       scanTimer = null;
       scanDeadline = 0;
-      scanAndSend().catch(console.error);
+      const force = forceNextScan;
+      forceNextScan = false;
+      scanAndSend(force).catch(console.error);
     }, delay);
   }
 
-  async function scanAndSend() {
+  async function scanAndSend(force = false) {
     let items;
     if (isNewInterface()) {
       if (!isPersonalNewQueue()) { newQueue = null; queuePages.clear(); return; }
@@ -504,7 +508,7 @@
     }
 
     if (
-      fingerprint === lastSentFingerprint &&
+      !force && fingerprint === lastSentFingerprint &&
       now - lastSentAt < UNCHANGED_HEARTBEAT_MS
     ) return;
 
@@ -517,6 +521,9 @@
     if (response?.success) {
       lastSentFingerprint = fingerprint;
       lastSentAt = now;
+      if (Number.isFinite(response.nextScanIn) && response.nextScanIn > 0) {
+        scheduleScan(Math.min(response.nextScanIn, 8000), true);
+      }
     }
   }
 
@@ -559,7 +566,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.5.2' });
+      sendResponse({ success: true, ready: true, version: '1.5.3' });
       return false;
     }
 
