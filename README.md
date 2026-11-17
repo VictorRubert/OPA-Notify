@@ -1,4 +1,4 @@
-# Opa!Notify v1.5.4
+# Opa!Notify v1.5.5
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -6,9 +6,9 @@ Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendime
 
 Endereços suportados: `https://suporte.ixcsoft.com.br/` e `https://opasuiteapi.ixcsoft.com.br/customer-service/in-progress`. As rotas dos dois domínios são reconhecidas, permitindo navegar sem perder o monitoramento.
 
-Reconhece automaticamente a interface antiga e a nova (Chrome 111 ou superior). Na interface nova, acompanha as listas completas recebidas pela conexão Socket.IO já aberta pelo Opa; rolar a fila não é tratado como saída de atendimento. Usa o nome do contato quando não há empresa vinculada.
+Reconhece automaticamente a interface antiga e a nova (Chrome 111 ou superior). Na interface nova, acompanha as listas completas pela conexão Socket.IO já aberta pelo Opa e revalida a fila a cada 15 segundos, repetindo apenas as consultas de leitura capturadas nessa sessão, com os mesmos filtros e sem trocar de fila; rolar a fila não é tratado como saída de atendimento. Usa o nome do contato quando não há empresa vinculada.
 
-Após instalar ou atualizar, **recarregue a aba do Opa** para conectar o monitor à nova interface. Mantenha **Em andamento → Meus atendimentos** selecionado, sem busca ou filtros adicionais. Listas paginadas só são comparadas depois de recebidas todas as páginas. Sem uma lista completa, a extensão aguarda em vez de gerar alertas de saída.
+Após instalar ou atualizar, **recarregue a aba do Opa** para conectar o monitor à nova interface. Mantenha **Em andamento → Meus atendimentos** selecionado, sem busca ou filtros adicionais. Listas paginadas só são comparadas depois de recebidas todas as páginas. Sem uma lista completa, a extensão aguarda em vez de gerar alertas de saída. A confirmação de saída exige uma nova resposta do servidor.
 
 ## Funcionalidades
 
@@ -38,7 +38,7 @@ Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada
 
 ## Permissões e limites
 
-A aba do Opa precisa permanecer aberta, com **Meus atendimentos** selecionado e sem busca preenchida. A extensão solicita uma leitura adicional a cada minuto, mesmo quando outra aba está ativa. O Chrome pode atrasar alarmes; abas suspensas ou descartadas e uma fila que o próprio Opa não atualiza em segundo plano impedem a detecção. O acesso a sites HTTP/HTTPS permite exibir cartões em outras abas; o monitor de atendimentos funciona apenas no Opa. Páginas protegidas do Chrome podem bloquear os cartões.
+A aba do Opa precisa permanecer aberta, com **Meus atendimentos** selecionado e sem busca preenchida. A revalidação automática da interface nova depende de capturar as consultas do Opa após a recarga. Há também uma verificação adicional a cada minuto pelo serviço da extensão, mesmo quando outra aba está ativa. O Chrome pode atrasar alarmes; abas suspensas ou descartadas e uma fila que o próprio Opa não atualiza em segundo plano impedem a detecção. O acesso a sites HTTP/HTTPS permite exibir cartões em outras abas; o monitor de atendimentos funciona apenas no Opa. Páginas protegidas do Chrome podem bloquear os cartões.
 
 As notificações do sistema exigem permissão e podem ser ocultadas pelo modo Não perturbe. Alterações no HTML do Opa podem exigir atualização dos seletores da extensão.
 
@@ -50,7 +50,7 @@ Use as simulações do popup com o Opa aberto. Em caso de falha, **Copiar diagn�
 node --test tests/*.test.cjs
 ```
 
-Para verificar a leitura e os destaques nas duas interfaces com exemplos fictícios, execute `node tests/interfaces.browser.cjs`. O ciclo integrado de recarga, recebimento e saída é verificado com `node tests/queue-flow.browser.cjs` em um ambiente com Playwright e Chromium (`CHROMIUM_PATH` permite escolher o executável).
+Para verificar a leitura e os destaques nas duas interfaces com exemplos fictícios, execute `node tests/interfaces.browser.cjs`. O ciclo integrado de recarga, recebimento e saída é verificado com `node tests/queue-flow.browser.cjs`; a detecção automática sem trocar de fila, com `node tests/queue-refresh.browser.cjs` em um ambiente com Playwright e Chromium (`CHROMIUM_PATH` permite escolher o executável).
 
 Os testes usam APIs Chrome e eventos de rede simulados; a integração deve ser validada em uma instalação real da extensão.
 

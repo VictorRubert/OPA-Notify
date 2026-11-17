@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.5.4';
+const EXTENSION_VERSION = '1.5.5';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {

@@ -31,6 +31,10 @@
   const CARD_SELECTOR = `.chat[data-id], ${NEW_CARD}`;
   let queuePages = new Map();
   let newQueue = null;
+  let lastCompleteQueueAt = 0;
+  let queueRefreshState = null;
+  let confirmationRefreshPending = false;
+  let confirmationSnapshotReady = false;
   let initialSnapshotPending = true;
   const queueDiagnostics = [];
   let newMetadata = new Map();
@@ -54,10 +58,15 @@
     if (event.source !== window || event.origin !== location.origin || !isSupportPage) return;
     const data = event.data;
     if (data?.source !== 'opa-notify-queue-v1') return;
+    if (data.kind === 'refresh-status') {
+      const states = ['inactive-view', 'waiting-for-complete-query', 'socket-not-open', 'rate-limited', 'search-active', 'missing-query', 'missing-page-query', 'sent', 'send-failed'];
+      if (states.includes(data.state)) queueRefreshState = { state: data.state, queryCaptured: data.queryCaptured === true, lastRequestAt: Number.isFinite(data.lastRequestAt) ? data.lastRequestAt : null, intervalMs: 15000 };
+      return;
+    }
     if (data.kind === 'diagnostic') {
       if (typeof data.event !== 'string' || !(data.event.startsWith('customer-services-ui:customer-service-queues:in-progress:') || data.event === 'socket-close')) return;
       queueDiagnostics.push({
-        at: Date.now(), event: data.event.slice(0, 180), direction: data.direction === 'sent' ? 'sent' : 'received',
+        at: Date.now(), automatic: data.automatic === true, event: data.event.slice(0, 180), direction: data.direction === 'sent' ? 'sent' : 'received',
         count: Number.isInteger(data.count) ? data.count : null,
         page: Number.isInteger(data.page) ? data.page : null,
         hasMore: typeof data.hasMore === 'boolean' ? data.hasMore : null
@@ -84,11 +93,15 @@
     for (let page = 1; page <= data.page; page++) if (!queuePages.has(page)) return;
     const items = [...Array(data.page)].flatMap((_, index) => queuePages.get(index + 1));
     if (new Set(items.map(item => item.id)).size !== items.length || new Set(items.map(item => item.protocol)).size !== items.length) { newQueue = null; return; }
+    lastCompleteQueueAt = Date.now();
     newMetadata = new Map(items.map(item => [item.id, item]));
     newQueue = items.map(({ id, protocol, company }) => ({ id, protocol, company }));
     applyHighlightedAttendance();
     scheduleMotivoHighlight();
-    scheduleScan(0);
+    const confirmsDeparture = confirmationRefreshPending;
+    confirmationRefreshPending = false;
+    confirmationSnapshotReady = confirmsDeparture;
+    scheduleScan(0, confirmsDeparture);
   });
 
   let settings = {
@@ -463,8 +476,19 @@
   async function scanAndSend(force = false) {
     let items;
     if (isNewInterface()) {
-      if (!isPersonalNewQueue()) { newQueue = null; queuePages.clear(); return; }
+      if (!isPersonalNewQueue()) { newQueue = null; queuePages.clear(); confirmationRefreshPending = false; confirmationSnapshotReady = false; return; }
       if (document.querySelector(`${NEW_LIST} input:not([type=checkbox]):not([type=radio])`)?.value?.trim()) return;
+      const freshConfirmation = confirmationSnapshotReady;
+      confirmationSnapshotReady = false;
+      force ||= freshConfirmation;
+      if (settings.enabled) {
+        const confirm = !freshConfirmation && (force || confirmationRefreshPending);
+        confirmationRefreshPending ||= confirm;
+        window.postMessage({ source: 'opa-notify-refresh-queue-v1', confirm }, location.origin);
+        // A cached absence is not a second observation. Wait for a fresh full
+        // server snapshot before confirming that an attendance really left.
+        if (confirm) return;
+      }
       if (newQueue === null) return;
       items = newQueue;
       applyHighlightedAttendance();
@@ -581,7 +605,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.5.4' });
+      sendResponse({ success: true, ready: true, version: '1.5.5' });
       return false;
     }
 
@@ -605,7 +629,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.5.4', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, initialSnapshotPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.5.5', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 

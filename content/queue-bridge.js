@@ -1,17 +1,27 @@
-// Runs in the page world. Observe the existing connection; never create a
-// connection, authenticate, send requests, or forward message history/tokens.
+// Runs in the page world. Observe the existing connection and periodically
+// repeat only queue-read requests previously sent by Opa. Never create a new
+// connection, extract authentication, or forward history/tokens/query payloads.
 (() => {
   if (globalThis.__OPA_NOTIFY_QUEUE_BRIDGE__) return;
   globalThis.__OPA_NOTIFY_QUEUE_BRIDGE__ = true;
   const EVENT = 'customer-services-ui:customer-service-queues:in-progress:list';
+  const LOAD_EVENT = 'customer-services-ui:customer-service-queues:in-progress:load-customer-services';
+  const REFRESH_INTERVAL_MS = 15000;
+  const refreshers = new Map();
+  function personalView() {
+    const filter = document.querySelector('[data-tutorial="customer-service-view-selector"]');
+    const tab = document.querySelector('[data-tutorial="customer-service-queue-in-progress"]');
+    const personal = filter?.textContent?.trim().toLowerCase() === 'meus atendimentos';
+    return personal && Boolean(tab && (tab.getAttribute('data-active') === 'true' || (tab.classList.contains('bg-gray-200') && tab.classList.contains('border-gray-400'))));
+  }
   const NativeSocket = globalThis.WebSocket;
   let buffered = [];
   const diagnostics = [];
-  const diagnose = (parsed, direction) => {
+  const diagnose = (parsed, direction, automatic = false) => {
     const name = parsed?.[0];
     if (typeof name !== 'string' || !name.startsWith('customer-services-ui:customer-service-queues:in-progress:')) return;
     const payload = parsed[1];
-    const message = { source: 'opa-notify-queue-v1', kind: 'diagnostic', event: name.replace(/[a-f0-9]{24}/gi, '<id>').replace(/OPA\d{6,}/g, '<protocol>'), direction, count: Array.isArray(payload) ? payload.length : Array.isArray(payload?.items) ? payload.items.length : null, page: Number.isInteger(payload?.page) ? payload.page : null, hasMore: typeof payload?.hasMore === 'boolean' ? payload.hasMore : null };
+    const message = { source: 'opa-notify-queue-v1', kind: 'diagnostic', automatic, event: name.replace(/[a-f0-9]{24}/gi, '<id>').replace(/OPA\d{6,}/g, '<protocol>'), direction, count: Array.isArray(payload) ? payload.length : Array.isArray(payload?.items) ? payload.items.length : null, page: Number.isInteger(payload?.page) ? payload.page : null, hasMore: typeof payload?.hasMore === 'boolean' ? payload.hasMore : null };
     diagnostics.push(message);
     if (diagnostics.length > 40) diagnostics.shift();
     window.postMessage(message, location.origin);
@@ -23,6 +33,10 @@
     window.postMessage(message, location.origin);
   };
   window.addEventListener('message', event => {
+    if (event.source === window && event.origin === location.origin && event.data?.source === 'opa-notify-refresh-queue-v1') {
+      for (const refresh of refreshers.values()) refresh(event.data.confirm === true);
+      return;
+    }
     if (event.source === window && event.origin === location.origin && event.data?.source === 'opa-notify-content-ready-v1') {
       for (const message of diagnostics) window.postMessage(message, location.origin);
       for (const message of buffered) window.postMessage(message, location.origin);
@@ -46,9 +60,64 @@
     let observesQueue = false;
     let collectingPages = false;
     const send = socket.send;
+    const requests = new Map();
+    let lastRequestAt = 0;
+    let queryConfirmed = false;
+    let completePageCount = 0;
+    const reportRefresh = state => window.postMessage({ source: 'opa-notify-queue-v1', kind: 'refresh-status', state, queryCaptured: requests.has(LOAD_EVENT + ':1') && requests.has(EVENT + ':1'), lastRequestAt, intervalMs: REFRESH_INTERVAL_MS }, location.origin);
+    const refresh = (confirm = false) => {
+      if (!observesQueue) return;
+      if (!personalView()) return reportRefresh('inactive-view');
+      if (!queryConfirmed || collectingPages) return reportRefresh('waiting-for-complete-query');
+      if (socket.readyState !== NativeSocket.OPEN) return reportRefresh('socket-not-open');
+      if (Date.now() - lastRequestAt < (confirm ? 2000 : REFRESH_INTERVAL_MS)) return reportRefresh('rate-limited');
+      const search = document.querySelector('[data-tutorial="customer-service-list"] input:not([type="checkbox"]):not([type="radio"])');
+      if (search?.value?.trim()) return reportRefresh('search-active');
+      // Replay the exact captured preferences and pages, never invent an API
+      // request or use DOM disappearance as evidence of a queue departure.
+      const frames = [];
+      const load = requests.get(LOAD_EVENT + ':1');
+      if (!load) return reportRefresh('missing-query');
+      frames.push(load);
+      for (let page = 1; page <= completePageCount; page++) {
+        const frame = requests.get(EVENT + ':' + page);
+        if (!frame) return reportRefresh('missing-page-query');
+        frames.push(frame);
+      }
+      lastRequestAt = Date.now();
+      collectingPages = false;
+      publish('reset', {});
+      try {
+        for (const frame of frames) {
+          Reflect.apply(send, socket, [frame]);
+          diagnose(decode(frame), 'sent', true);
+        }
+        reportRefresh('sent');
+      } catch {
+        queryConfirmed = false;
+        reportRefresh('send-failed');
+        publish('reset', {});
+      }
+    };
+    refreshers.set(socket, refresh);
     socket.send = function(value) {
       const result = Reflect.apply(send, this, arguments);
-      diagnose(decode(value), 'sent');
+      const parsed = decode(value);
+      diagnose(parsed, 'sent');
+      if (parsed && (parsed[0] === EVENT || parsed[0] === LOAD_EVENT)) {
+        lastRequestAt = Date.now();
+        const payload = parsed[1];
+        // Acknowledgement IDs/namespaces are intentionally not replayed: they
+        // belong to the app's callback machinery. The observed queue uses 42[.
+        if (typeof value === 'string' && value.startsWith('42[') && (payload == null || (typeof payload === 'object' && !Array.isArray(payload)))) {
+          const page = payload?.page ?? 1;
+          if (Number.isInteger(page) && page >= 1 && page <= 1000) {
+            if (parsed[0] === LOAD_EVENT && page === 1) { requests.clear(); queryConfirmed = false; completePageCount = 0; }
+            if (personalView()) requests.set(parsed[0] + ':' + page, value);
+            else { requests.clear(); queryConfirmed = false; }
+          }
+        }
+      }
       const payload = packet(value);
       if (payload && !(Number(payload.page) > 1) && (!collectingPages || Number(payload.page) === 1)) { observesQueue = true; publish('reset', {}); }
       return result;
@@ -65,6 +134,10 @@
       if (!payload || !Array.isArray(payload.items) || !Number.isInteger(payload.page) || typeof payload.hasMore !== 'boolean') return;
       observesQueue = true;
       collectingPages = payload.hasMore;
+      if (!payload.hasMore && personalView()) {
+        completePageCount = payload.page;
+        queryConfirmed = requests.has(LOAD_EVENT + ':1') && requests.has(EVENT + ':1');
+      }
       const items = payload.items.map(item => {
         const client = item?.id_cliente;
         return {
@@ -75,7 +148,7 @@
       });
       publish('page', { items, page: payload.page, hasMore: payload.hasMore, view: document.querySelector('[data-tutorial="customer-service-view-selector"]')?.textContent?.trim() || '' });
     });
-    socket.addEventListener('close', () => { if (observesQueue) publish('reset', {}); });
+    socket.addEventListener('close', () => { refreshers.delete(socket); requests.clear(); if (observesQueue) publish('reset', {}); });
     return socket;
   }
   globalThis.WebSocket = new Proxy(NativeSocket, {

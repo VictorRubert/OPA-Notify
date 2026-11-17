@@ -52,6 +52,7 @@ const html='<button data-tutorial="customer-service-queue-in-progress" class="bg
   await open();await packet([item(1)]);assert.deepEqual(system,[]);assert.deepEqual(cards,[]);
   await page.evaluate(()=>{clock+=11000;});await packet([]);
   await page.evaluate(()=>{clock+=8000;flush();});await page.waitForTimeout(100);
+  await packet([]);
   assert.deepEqual(system,['finished']);assert.deepEqual(cards,['finished']);
   // The same pre-existing attendance reappears in the initial server snapshot
   // after reload. It must silently become the baseline, not a new receipt.
