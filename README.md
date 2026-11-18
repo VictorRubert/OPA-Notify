@@ -1,4 +1,4 @@
-# Opa!Notify v1.6.0
+# Opa!Notify v1.6.1
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -18,7 +18,7 @@ Após instalar ou atualizar, **recarregue a aba do Opa** para conectar o monitor
 - Destaque e lembrete para motivo não preenchido.
 - Sons integrados ou personalizados em MP3, WAV ou OGG (até 2 MB).
 
-Os avisos de recebimento e de mensagem abrem a conversa ao clicar. O cartão de saída permite copiar o protocolo.
+Os avisos de recebimento e de mensagem abrem a conversa ao clicar. A conversa que já estiver aberta na tela do atendente não gera avisos. O cartão de saída permite copiar o protocolo.
 
 Na interface nova, um cartão que aparece em **Meus atendimentos** após a leitura inicial também pode gerar o aviso de entrada. Se o protocolo ainda estiver indisponível, o aviso mostra o nome e abre a conversa pelo identificador do cartão. Quando a lista completa confirma o protocolo, o histórico é atualizado sem repetir o aviso.
 

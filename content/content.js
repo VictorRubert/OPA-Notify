@@ -57,6 +57,18 @@
   }
   function cardId(card) { return card?.getAttribute('itemid') || card?.getAttribute('data-id') || ''; }
   function cardClickTarget(card) { return card?.querySelector('.corpo') || card?.querySelector(':scope > button') || card; }
+  function openAttendance() {
+    if (isNewInterface()) {
+      const current = currentNewAttendance();
+      return { id: current?.getAttribute('data-customer-service-id') || '', protocol: normalizeProtocol(current?.getAttribute('data-protocol')) };
+    }
+    const current = document.querySelector('.chat.selected[data-id]');
+    return { id: cardId(current), protocol: current ? extractProtocol(current) || '' : '' };
+  }
+  function isOpenAttendance(attendance) {
+    const open = openAttendance();
+    return Boolean((attendance.id && attendance.id === open.id) || (attendance.protocol && attendance.protocol === open.protocol));
+  }
   function currentNewAttendance() { return document.querySelector('[data-customer-service-id][data-protocol]'); }
   function currentCard() {
     if (!isNewInterface()) return document.querySelector('.chat.selected[data-id]');
@@ -458,7 +470,8 @@
     if (!previous || !token || !cursor.incoming) return;
     if (legacy && /^\d+$/.test(token) && /^\d+$/.test(previous.last) && Number(token) <= Number(previous.last)) return;
     const attendance = { id, protocol: item.protocol, company: item.company };
-    chrome.runtime.sendMessage({ type: 'CLIENT_MESSAGE', attendance, tags: item.tags || [], cursor: token, text: cursor.text || '', legacy }).catch(console.warn);
+    if (isOpenAttendance(attendance)) return;
+    chrome.runtime.sendMessage({ type: 'CLIENT_MESSAGE', attendance, openAttendance: openAttendance(), tags: item.tags || [], cursor: token, text: cursor.text || '', legacy }).catch(console.warn);
   }
 
   function legacyQueueRoot() {
@@ -523,7 +536,7 @@
           scheduleScan(1500);
         } else if (Date.now() - visibleCandidates.get(id) >= 1500) {
           visibleCandidates.set(id, Infinity);
-          chrome.runtime.sendMessage({ type: 'VISIBLE_ARRIVAL', attendance: visibleRow(card) }).then(response => {
+          chrome.runtime.sendMessage({ type: 'VISIBLE_ARRIVAL', attendance: visibleRow(card), openAttendance: openAttendance() }).then(response => {
             if (!response?.success) visibleCandidates.delete(id);
           }).catch(() => visibleCandidates.delete(id));
         } else if (Number.isFinite(visibleCandidates.get(id))) {
@@ -727,6 +740,7 @@
       completeSnapshot,
       type: 'ATTENDANCE_SCAN',
       initialRead: initialSnapshotPending,
+      openAttendance: openAttendance(),
       items,
       pageUrl: location.href,
       scannedAt: now
@@ -781,7 +795,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.6.0' });
+      sendResponse({ success: true, ready: true, version: '1.6.1' });
       return false;
     }
 
@@ -805,7 +819,12 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.6.0', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.6.1', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      return false;
+    }
+
+    if (message?.type === 'CHECK_ATTENDANCE_ACTIVE') {
+      sendResponse({ success: true, active: isOpenAttendance(message.attendance || {}) });
       return false;
     }
 

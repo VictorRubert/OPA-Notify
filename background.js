@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '1.6.0';
+const EXTENSION_VERSION = '1.6.1';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -114,7 +114,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'ATTENDANCE_SCAN') {
     scanQueue = scanQueue
-      .then(() => processAttendanceScan(message.items, sender, { initialRead: message.initialRead === true, completeSnapshot: message.completeSnapshot === true }))
+      .then(() => processAttendanceScan(message.items, sender, { initialRead: message.initialRead === true, completeSnapshot: message.completeSnapshot === true, openAttendance: message.openAttendance }))
       .then(result => sendResponse(result))
       .catch(error => {
         console.error('Falha ao processar leitura da fila:', error);
@@ -181,6 +181,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
+function isOpenAttendance(attendance, open) {
+  return Boolean((attendance.id && attendance.id === open?.id) ||
+    (attendance.protocol && attendance.protocol === normalizeProtocol(open?.protocol)));
+}
+
 // Serialize positive signals with full scans so the DOM and server cannot
 // independently announce the same arrival. A visible row never proves a departure.
 async function processQueueSignal(message, sender) {
@@ -199,11 +204,13 @@ async function processQueueSignal(message, sender) {
     if (!pending[key]) {
       pending[key] = Date.now();
       await chrome.storage.session.set({ visibleArrivals: pending, lastVisibleArrivalAt: pending[key] });
-      await announceAttendance(attendance, sender, settings, 'received');
+      if (!isOpenAttendance(attendance, message.openAttendance)) {
+        await announceAttendance(attendance, sender, settings, 'received');
+      }
     }
     return { success: true };
   }
-  if (!settings.notifyClientMessages || !attendance.protocol) return { success: true };
+  if (!settings.notifyClientMessages || !attendance.protocol || isOpenAttendance(attendance, message.openAttendance)) return { success: true };
   if (settings.messageScope === 'priority' && !message.tags?.some(tag => typeof tag === 'string' && Number.isFinite(OpaTagSettings.tagRank(tag, settings.priorityTags)))) return { success: true };
   if (typeof message.cursor !== 'string' || !message.cursor) return { success: false };
   const { recentClientMessages = {} } = await chrome.storage.session.get('recentClientMessages');
@@ -219,7 +226,7 @@ async function processQueueSignal(message, sender) {
   return { success: true };
 }
 
-async function processAttendanceScan(rawItems, sender, { initialRead = false, completeSnapshot = false } = {}) {
+async function processAttendanceScan(rawItems, sender, { initialRead = false, completeSnapshot = false, openAttendance = null } = {}) {
   const now = Date.now();
   const currentItems = normalizeAttendances(rawItems);
   const currentMap = new Map(currentItems.map(item => [item.protocol, item]));
@@ -345,18 +352,22 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false, co
 
   const settings = await getSettings();
 
-  if (settings.enabled && newestAttendance) {
+  if (settings.enabled && newestAttendance && !isOpenAttendance(newestAttendance, openAttendance)) {
     await setHighlightedAttendance(newestAttendance.protocol, 'received');
   }
 
   if (settings.enabled) {
     for (const attendance of newAttendances) {
-      if (!previouslyAnnounced.has(attendance.id)) await announceAttendance(attendance, sender, settings, 'received');
+      if (!previouslyAnnounced.has(attendance.id) && !isOpenAttendance(attendance, openAttendance)) {
+        await announceAttendance(attendance, sender, settings, 'received');
+      }
     }
 
     if (settings.notifyOnFinished) {
       for (const attendance of finishedAttendances) {
-        await announceAttendance(attendance, sender, settings, 'finished');
+        if (!isOpenAttendance(attendance, openAttendance)) {
+          await announceAttendance(attendance, sender, settings, 'finished');
+        }
       }
     }
   }
@@ -459,6 +470,10 @@ function normalizePendingRemovals(value) {
 }
 
 async function announceAttendance(attendance, sender, settings, eventType, isTest = false) {
+  if (!isTest && sender.tab?.id) {
+    const current = await sendToSupportTab(sender.tab.id, { type: 'CHECK_ATTENDANCE_ACTIVE', attendance }).catch(() => null);
+    if (current?.active) return;
+  }
   const systemEnabled = settings.systemNotificationsEnabled && eventType !== 'message';
   const delivery = { at: Date.now(), eventType, sourceVisual: settings.visualEnabled ? 'unavailable' : 'disabled', otherTabs: { enabled: settings.otherTabsEnabled, attempted: 0, delivered: 0, failed: 0 }, system: systemEnabled ? 'pending' : 'disabled' };
   if (settings.visualEnabled && sender.tab?.id) {

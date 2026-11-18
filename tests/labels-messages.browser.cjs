@@ -60,10 +60,15 @@ async function run(browser, modernUI) {
 
   if (modernUI) {
     const incoming = { _id:'customer-1', mensagem:'Olá, preciso de ajuda', tipoDestinatario:'usuarios', statusEnvio:{status:'sent'} };
+    await page.locator('[data-tutorial=customer-service-list]').evaluate(el => el.insertAdjacentHTML('afterend', '<div data-customer-service-id=chat-1 data-protocol=OPA100001></div>'));
     const changed = [{ ...rows[0], lastMessage: incoming }, rows[1]];
     await queue(page, changed);
-    await queue(page, changed);
+    assert.equal(await count(), 0);
+    await page.locator('[data-customer-service-id=chat-1]').evaluate(el=>el.remove());
+    const next = [{ ...rows[0], lastMessage: { ...incoming, _id:'customer-next' } }, rows[1]];
+    await queue(page, next);
     assert.equal(await count(), 1);
+    await queue(page, next);
     assert.equal(await page.evaluate(()=>sent.find(m=>m.type==='CLIENT_MESSAGE').text),'Olá, preciso de ajuda');
     await page.evaluate(data => socket.receive('42' + JSON.stringify(['message-update', data])), { ...incoming, _id:'customer-2', id_rota:'chat-1' });
     await page.waitForTimeout(60);
@@ -79,7 +84,10 @@ async function run(browser, modernUI) {
     await queue(page,[...rows,item(3)]);
     assert.equal(await page.getByRole('button',{name:'Voltar à lista do Opa'}).count(),0);
   } else {
-    await page.locator('.chat').first().evaluate(el=>{const b=document.createElement('b');b.className='notifica piscar';b.textContent='1';el.append(b);});
+    await page.locator('.chat').first().evaluate(el=>{el.classList.add('selected');const b=document.createElement('b');b.className='notifica piscar';b.textContent='1';el.append(b);});
+    await page.evaluate(()=>call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
+    assert.equal(await count(),0);
+    await page.locator('.chat').first().evaluate(el=>{el.classList.remove('selected');el.querySelector('.notifica').textContent='2';});
     await page.evaluate(()=>call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
     await page.waitForFunction(()=> sent.some(m=>m.type==='CLIENT_MESSAGE'));
     assert.equal(await count(),1);
