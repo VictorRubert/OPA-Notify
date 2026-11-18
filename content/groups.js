@@ -5,26 +5,24 @@
     .opa-groups-native { display:flex!important; flex-direction:column!important; gap:0!important }
     .opa-groups-item { order:var(--opa-group-order)!important }
     .opa-groups-hidden { display:none!important }
-    .opa-groups-head,.opa-groups-toggle { box-sizing:border-box;width:100%;text-align:start;font-family:inherit;cursor:pointer;border:0;border-radius:0;flex:none }
+    .opa-groups-head { box-sizing:border-box;width:100%;text-align:start;font-family:inherit;cursor:pointer;border:0;border-radius:0;flex:none }
     .opa-groups-head { display:flex;align-items:center;gap:7px;min-height:35px;padding:6px 10px;border-block-end:1px solid #4a4140;background:#302c2d;color:#ffae38;font-size:11px;font-weight:700;line-height:1.25;letter-spacing:.035em;text-transform:uppercase }
     .opa-groups-head[data-subgroup] { padding-inline-start:21px;background:#252933;color:#a4b4c9;border-color:#3a414d }
     .opa-groups-head:hover { filter:brightness(1.12) }
-    .opa-groups-head:focus-visible,.opa-groups-toggle:focus-visible { outline:2px solid currentColor;outline-offset:-2px }
+    .opa-groups-head:focus-visible { outline:2px solid currentColor;outline-offset:-2px }
     .opa-groups-arrow { width:6px;height:6px;flex:none;box-sizing:border-box;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(-45deg) }
     [aria-expanded=true] > .opa-groups-arrow { transform:translateY(-1px) rotate(45deg) }
     .opa-groups-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
     .opa-groups-count { flex:none;min-width:17px;text-align:center;padding:1px 5px;border-radius:4px;background:#5b432b;font-size:10px;font-variant-numeric:tabular-nums }
     [data-subgroup] > .opa-groups-count { background:#343e4b }
     .opa-groups-dot { color:#ffba4e;font-size:10px }
-    .opa-groups-toggle { display:block;padding:6px 10px;line-height:18px;color:inherit;background:color-mix(in srgb,currentColor 8%,transparent);font-size:12px;font-weight:600 }
-    .opa-groups-frame { display:flex;flex-direction:column;min-height:0 }
     .opa-groups-viewport { overflow-y:auto!important;overflow-anchor:none;min-height:0 }
     .opa-groups-clip { height:var(--opa-layout-height,auto)!important;overflow:clip!important;flex:none!important }
     .opa-groups-expanded { flex:none!important;height:var(--opa-native-height)!important;max-height:none!important;overflow:visible!important }
     .opa-groups-virtual { height:auto!important;min-height:0!important;position:relative }
     .opa-groups-virtual > .opa-groups-item { position:relative!important;inset:auto!important;transform:none!important;flex:none!important }
     /* Keep collapsed wrappers measurable for the Opa variable-height virtualizer. */
-    .opa-groups-virtual > .opa-groups-hidden { display:block!important;visibility:hidden!important;pointer-events:none!important;position:absolute!important;inset:0 0 auto!important }
+    .opa-groups-virtual > .opa-groups-hidden { display:block!important;visibility:hidden!important;clip-path:inset(100%)!important;pointer-events:none!important;position:absolute!important;inset:0 0 auto!important }
   `;
   const fold = name => name.trim().toLocaleLowerCase();
   function element(tag, className, text) {
@@ -33,8 +31,19 @@
     if (text !== undefined) node.textContent = text;
     return node;
   }
+  function setCollapsed(node, collapsed) {
+    node.classList.toggle('opa-groups-hidden', collapsed);
+    if (collapsed && !node.inert) {
+      node.inert = true;
+      node.dataset.opaGroupInert = '';
+    } else if (!collapsed && node.hasAttribute('data-opa-group-inert')) {
+      node.inert = false;
+      delete node.dataset.opaGroupInert;
+    }
+  }
   function removeOrder(node) {
-    node.classList.remove('opa-groups-item', 'opa-groups-hidden');
+    setCollapsed(node, false);
+    node.classList.remove('opa-groups-item');
     node.style.removeProperty('--opa-group-order');
   }
 
@@ -44,7 +53,6 @@
       this.headers = [];
       this.items = [];
       this.paths = new Map();
-      this.grouped = true;
     }
 
     clearLayout() {
@@ -70,9 +78,7 @@
     clear() {
       if (!this.root) return;
       this.clearLayout();
-      this.toggle?.remove();
-      this.frame?.classList.remove('opa-groups-frame');
-      this.toggle = this.root = this.frame = this.scroller = this.signature = null;
+      this.root = this.scroller = this.signature = null;
       this.items = [];
     }
 
@@ -92,27 +98,16 @@
         style.id = 'opa-groups-style';
         document.head.append(style);
       }
-      if (root !== this.root || (modern && !this.toggle?.isConnected)) {
+      if (root !== this.root) {
         this.clear();
         this.root = root;
-        if (modern) {
-          this.scroller = root.closest('.sidebar-scroll, .overflow-auto') || root;
-          this.frame = this.scroller.parentElement;
-          this.frame.classList.add('opa-groups-frame');
-          this.toggle = element('button', 'opa-groups-toggle');
-          this.toggle.type = 'button';
-          this.toggle.onclick = () => {
-            this.grouped = !this.grouped;
-            this.render();
-          };
-          this.scroller.before(this.toggle);
-        }
+        if (modern) this.scroller = root.closest('.sidebar-scroll, .overflow-auto') || root;
       }
       const signature = JSON.stringify([settings.tagMode, settings.groupTags, settings.priorityTags,
         rows.map(({ id, tags, pinned, unread }) => [id, tags, pinned, unread])]);
       const sameRows = this.signature === signature && this.items.every((item,i) => item.node === rows[i].node);
       if (sameRows && this.headers.every(header => header.parentElement === root)) {
-        if (this.toggle && this.grouped) this.groupVirtualRows();
+        this.groupVirtualRows();
         return;
       }
       const present = new Set(rows.map(row => row.node));
@@ -142,7 +137,7 @@
       };
       const syncLayout = () => {
         if (!this.clip) return;
-        const height = this.root.offsetHeight + this.toggle.offsetHeight;
+        const height = this.root.offsetHeight;
         this.clip.style.setProperty('--opa-layout-height', height + 'px');
       };
       syncExtent();
@@ -151,7 +146,6 @@
       this.extent.observe(this.root, { attributes:true, attributeFilter:['style'] });
       this.resize = new ResizeObserver(syncLayout);
       this.resize.observe(this.root);
-      this.resize.observe(this.toggle);
       syncLayout();
     }
 
@@ -159,12 +153,7 @@
       for (const node of this.headers) node.remove();
       this.headers = [];
       this.paths.clear();
-      if (this.toggle) {
-        this.toggle.textContent = this.grouped ? 'Voltar à lista do Opa' : 'Por etiquetas';
-        this.toggle.setAttribute('aria-expanded', String(this.grouped));
-        if (!this.grouped) { this.clearLayout(); return; }
-        this.groupVirtualRows();
-      }
+      this.groupVirtualRows();
       this.root.classList.add('opa-groups-native');
       const { tagRank, isStatus } = OpaTagSettings;
       const { priorityTags, groupTags, tagMode } = this.settings;
@@ -205,7 +194,7 @@
         for (const item of branch.items) {
           item.node.classList.add('opa-groups-item');
           item.node.style.setProperty('--opa-group-order', ++order);
-          item.node.classList.toggle('opa-groups-hidden', !visible);
+          setCollapsed(item.node, !visible);
         }
         const groups = [...branch.groups.values()].sort((a,b) => Number(a.key === ':none') - Number(b.key === ':none') || rank(a.key) - rank(b.key) || a.label.localeCompare(b.label));
         for (const group of groups) {

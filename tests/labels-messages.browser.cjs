@@ -76,9 +76,7 @@ async function run(browser, modernUI) {
     await queue(page,rows);
     assert.equal(await page.evaluate(() => sent.filter(m => m.type === 'VISIBLE_ARRIVAL').length),1);
     await queue(page,[...rows,item(3)]);
-    await page.getByRole('button',{name:'Voltar à lista do Opa'}).click();
-    assert.equal(await page.locator('.opa-groups-head').count(),0);
-    await page.getByRole('button',{name:'Por etiquetas'}).click();
+    assert.equal(await page.getByRole('button',{name:'Voltar à lista do Opa'}).count(),0);
   } else {
     await page.locator('.chat').first().evaluate(el=>{const b=document.createElement('b');b.className='notifica piscar';b.textContent='1';el.append(b);});
     await page.evaluate(()=>call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
@@ -178,6 +176,12 @@ async function virtualCards(browser) {
   await parent.click();
   assert.equal(await page.locator('[itemid="service-0"]').isVisible(),false);
   assert.equal(await page.locator('[itemid="service-0"]').evaluate(el=>el.offsetHeight),72);
+  // Some native previews opt into visibility on a descendant. They must not
+  // paint over the following header even while the virtualizer measures them.
+  const before = await page.locator('.column').screenshot();
+  await page.addStyleTag({content:'.opa-groups-hidden small {visibility:visible!important;background:magenta!important;color:white!important}'});
+  assert((await page.locator('.column').screenshot()).equals(before));
+  assert.equal(await page.locator('.opa-groups-hidden:not([inert])').count(),0);
   await other.click();
   await page.waitForFunction(()=>document.querySelector('.column').scrollHeight <= document.querySelector('.column').clientHeight + 1);
   await page.evaluate(()=>groups.reveal('service-21'));
@@ -185,11 +189,10 @@ async function virtualCards(browser) {
   assert.equal(await page.evaluate(()=>window.menu),21);
   await page.locator('[itemid="service-21"] strong').click();
   assert.equal(await page.evaluate(()=>window.opened),21);
-  await page.getByRole('button',{name:'Voltar à lista do Opa'}).click();
+  await page.evaluate(()=>{grouping=false;groups.clear();});
   await page.waitForFunction(()=>document.querySelectorAll('[itemid]').length<24);
   assert.equal(await page.locator('.opa-groups-head').count(),0);
   assert.equal(await page.locator('ul').evaluate(el=>el.style.height),'1728px');
-  await page.evaluate(()=>{grouping=false;groups.clear();});
   assert.equal(await page.locator('[class*="opa-groups-"]').count(),0);
   await page.close();
 }
