@@ -69,6 +69,7 @@
       this.scroller?.classList.remove('opa-groups-expanded');
       this.scroller?.style.removeProperty('--opa-native-height');
       if (this.viewport) {
+        if (this.addedSidebarScroll) this.viewport.classList.remove('sidebar-scroll');
         this.viewport.scrollTop = this.previousViewportTop;
         this.scroller.scrollTop = this.previousNativeTop;
       }
@@ -127,6 +128,10 @@
       this.viewport = this.clip.parentElement;
       this.previousViewportTop = this.viewport.scrollTop;
       this.previousNativeTop = this.scroller.scrollTop;
+      // The grouped column owns scrolling, so apply Opa's native scrollbar
+      // class there as well. Its theme and hover rules stay under Opa's control.
+      this.addedSidebarScroll = this.scroller.classList.contains('sidebar-scroll') && !this.viewport.classList.contains('sidebar-scroll');
+      if (this.addedSidebarScroll) this.viewport.classList.add('sidebar-scroll');
       this.viewport.classList.add('opa-groups-viewport');
       this.clip.classList.add('opa-groups-clip');
       this.root.classList.add('opa-groups-virtual');

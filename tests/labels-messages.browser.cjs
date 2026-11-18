@@ -116,6 +116,9 @@ async function virtualCards(browser) {
       *{box-sizing:border-box} body{margin:0;background:#1f2430;color:#edf2fa;font:13px Arial,sans-serif}
       section{height:500px;width:370px;display:flex;flex-direction:column}.column{flex:1;min-height:0}
       .frame,.sidebar-scroll{height:100%}.sidebar-scroll{overflow:auto}ul{position:relative;margin:0;padding:0}
+      .sidebar-scroll::-webkit-scrollbar{width:6px}
+      .sidebar-scroll::-webkit-scrollbar-track{background:transparent}
+      .sidebar-scroll::-webkit-scrollbar-thumb{background:#424858;border-radius:6px}
       [data-index]{position:absolute;left:0;top:0;width:100%}[itemid]{display:flex;align-items:center;gap:10px;height:72px;padding:8px;border-bottom:1px solid #49505b;background:#293243}
       [itemid] button{font:inherit;background:none;border:none;color:inherit}small{color:#95a5bd}
     </style>
@@ -161,10 +164,19 @@ async function virtualCards(browser) {
     scroller.addEventListener('scroll',renderNative);
     window.originalCard = ul.querySelector('[itemid]');
   });
+  const scrollbar = locator => locator.evaluate(el => ({
+    width: getComputedStyle(el,'::-webkit-scrollbar').width,
+    track: getComputedStyle(el,'::-webkit-scrollbar-track').backgroundColor,
+    thumb: getComputedStyle(el,'::-webkit-scrollbar-thumb').backgroundColor,
+    radius: getComputedStyle(el,'::-webkit-scrollbar-thumb').borderRadius
+  }));
+  const nativeScrollbar = await scrollbar(page.locator('.frame > .sidebar-scroll'));
+  assert.equal(nativeScrollbar.width,'6px');
   assert(await page.locator('[itemid]').count() < 24);
   await page.evaluate(()=>{grouping=true;renderNative();});
   const parent = page.getByRole('button',{name:'Ajudando (8)',exact:true});
   await parent.waitFor();
+  assert.deepEqual(await scrollbar(page.locator('.opa-groups-viewport')),nativeScrollbar);
   assert.equal(await page.locator('[itemid]').count(),24);
   assert.equal(await page.evaluate(()=>originalCard === document.querySelector('[itemid="service-0"]')),true);
   const nested = page.getByRole('button',{name:'Assumido (8)',exact:true});
@@ -192,6 +204,8 @@ async function virtualCards(browser) {
   await page.evaluate(()=>{grouping=false;groups.clear();});
   await page.waitForFunction(()=>document.querySelectorAll('[itemid]').length<24);
   assert.equal(await page.locator('.opa-groups-head').count(),0);
+  assert.equal(await page.locator('.column.sidebar-scroll').count(),0);
+  assert.deepEqual(await scrollbar(page.locator('.frame > .sidebar-scroll')),nativeScrollbar);
   assert.equal(await page.locator('ul').evaluate(el=>el.style.height),'1728px');
   assert.equal(await page.locator('[class*="opa-groups-"]').count(),0);
   await page.close();
