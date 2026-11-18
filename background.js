@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '1.6.3';
+const EXTENSION_VERSION = '1.6.4';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -194,6 +194,7 @@ async function processQueueSignal(message, sender) {
   const raw = message.attendance;
   if (!raw || typeof raw.id !== 'string' || !raw.id || typeof raw.company !== 'string') return { success: false };
   const attendance = { id: raw.id.slice(0, 120), protocol: normalizeProtocol(raw.protocol), company: raw.company.slice(0, 250) };
+  if (OpaTagSettings.isAssumedOnly(message.tags || raw.tags)) return { success: true };
   if (message.type === 'VISIBLE_ARRIVAL') {
     const { attendanceSnapshot, pendingRemovals } = await chrome.storage.local.get(['attendanceSnapshot', 'pendingRemovals']);
     const known = [...(attendanceSnapshot || []), ...Object.values(pendingRemovals || {}).map(entry => entry.attendance)];
@@ -239,7 +240,8 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false, co
     'baselineGraceUntil',
     'forceBaselineUntil',
     'emptyScanFirstAt',
-    'attendanceHistory'
+    'attendanceHistory',
+    'highlightedAttendanceProtocol'
   ]);
 
   const previousItems = normalizeAttendances(stored.attendanceSnapshot);
@@ -311,13 +313,15 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false, co
     ? Math.max(storedGraceUntil, now + BASELINE_GRACE_MS)
     : storedGraceUntil;
 
+  const notifiableNew = newAttendances.filter(item => !item.silent);
+  const notifiableFinished = finishedAttendances.filter(item => !item.silent);
   const attendanceHistory = mergeAttendanceHistory(
     stored.attendanceHistory,
-    newAttendances,
+    notifiableNew,
     now
   );
-  const newestAttendance = newAttendances.length > 0
-    ? newAttendances[newAttendances.length - 1]
+  const newestAttendance = notifiableNew.length > 0
+    ? notifiableNew[notifiableNew.length - 1]
     : null;
 
   await chrome.storage.local.set({
@@ -332,6 +336,9 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false, co
     lastDetectedCount: currentItems.length,
     attendanceHistory
   });
+  if (currentItems.some(item => item.silent && item.protocol === stored.highlightedAttendanceProtocol)) {
+    await clearHighlightedAttendance();
+  }
 
   const { visibleArrivals = {} } = await chrome.storage.session.get('visibleArrivals');
   const previouslyAnnounced = new Set(currentItems.filter(item => visibleArrivals['id:' + item.id]).map(item => item.id));
@@ -357,14 +364,14 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false, co
   }
 
   if (settings.enabled) {
-    for (const attendance of newAttendances) {
+    for (const attendance of notifiableNew) {
       if (!previouslyAnnounced.has(attendance.id) && !isOpenAttendance(attendance, openAttendance)) {
         await announceAttendance(attendance, sender, settings, 'received');
       }
     }
 
     if (settings.notifyOnFinished) {
-      for (const attendance of finishedAttendances) {
+      for (const attendance of notifiableFinished) {
         if (!isOpenAttendance(attendance, openAttendance)) {
           await announceAttendance(attendance, sender, settings, 'finished');
         }
@@ -376,8 +383,8 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false, co
     success: true,
     baselineCreated: false,
     currentCount: currentItems.length,
-    newCount: newAttendances.length,
-    finishedCount: finishedAttendances.length,
+    newCount: notifiableNew.length,
+    finishedCount: notifiableFinished.length,
     nextScanIn: Object.keys(pendingRemovals).length
       ? Math.max(1, Math.min(...Object.values(pendingRemovals).map(pending => REMOVAL_CONFIRMATION_MS - (now - pending.firstMissingAt))))
       : 0
@@ -400,7 +407,8 @@ function normalizeAttendances(items) {
     unique.set(protocol, {
       id,
       protocol,
-      company: company.slice(0, 250)
+      company: company.slice(0, 250),
+      ...(raw?.silent === true ? { silent: true } : {})
     });
   }
 

@@ -310,72 +310,7 @@ footer {
 }
 
 
-.protocol-highlight-test {
-  margin-bottom: 10px;
-  padding: 10px;
-  background: rgba(124, 58, 237, .09);
-  border: 1px solid rgba(167, 139, 250, .2);
-  border-radius: 8px;
-}
-
-.protocol-highlight-test label {
-  display: block;
-}
-
-.protocol-highlight-test strong {
-  display: block;
-  color: var(--purple-light);
-  font-size: 12px;
-}
-
-.protocol-highlight-test small {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.protocol-highlight-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
-  margin-top: 8px;
-}
-
-.protocol-highlight-row input {
-  min-width: 0;
-  padding: 8px 9px;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  outline: none;
-  text-transform: uppercase;
-}
-
-.protocol-highlight-row input:focus {
-  border-color: var(--purple-light);
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, .16);
-}
-
-.button.purple {
-  background: var(--purple);
-}
-
-.button.compact {
-  width: auto;
-  margin-top: 0;
-  padding-inline: 12px;
-}
-
-.purple-hint {
-  margin: 7px 0 0;
-  color: #9f8ccf;
-}
-
-
 .button.clear-highlight {
-  margin-top: 7px;
   color: var(--purple-light);
   background: rgba(124, 58, 237, .08);
   border-color: rgba(167, 139, 250, .36);

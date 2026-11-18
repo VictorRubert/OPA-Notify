@@ -28,10 +28,12 @@ async function inactivityBadge(browser) {
   page.on('pageerror', error => errors.push(error.message));
   await page.route(origin + '/**', route => route.fulfill({contentType:'text/html',body:modern}));
   await page.addInitScript(() => {
+    window.sent=[];
     window.chrome = {
       storage:{local:{get:async()=>({enabled:true,groupByTag:false,notifyClientMessages:false})},onChanged:{addListener(){}}},
-      runtime:{onMessage:{addListener(){}},sendMessage:async()=>({success:true})}
+      runtime:{onMessage:{addListener(fn){window.listener=fn;}},sendMessage:async message=>{sent.push(message);return {success:true};}}
     };
+    window.call = message => new Promise(resolve => listener(message,{},resolve));
     window.WebSocket = class {
       constructor(){this.handlers={};}
       send(){}
@@ -57,6 +59,11 @@ async function inactivityBadge(browser) {
   await queue(page,[{...rows[0],lastMessage:{_id:'system',tipoDestinatario:'clientes_users',data:timestamp(2),systemMessage:true}},rows[1]]);
   assert.equal(await badge.count(),0);
   assert.equal(await page.locator('[itemid="chat-2"] .opa-notify-inactivity-tag').count(),0);
+  await queue(page,[{...rows[0],tags:[{nome:'ASSUMIDO AGENTE SMITH'},{nome:'SMITH V2'}]},rows[1]]);
+  await page.evaluate(() => call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
+  assert.equal(await page.evaluate(() => sent.filter(message=>message.type==='ATTENDANCE_SCAN').at(-1).items.find(item=>item.id==='chat-1').silent),true);
+  await page.evaluate(() => call({type:'SET_HIGHLIGHTED_ATTENDANCE',protocol:'OPA100001'}));
+  assert.equal(await page.locator('[itemid="chat-1"].opa-notify-current-attendance').count(),0);
   assert.deepEqual(errors,[]);
   await page.close();
 }
@@ -165,6 +172,14 @@ async function run(browser, modernUI) {
     await page.evaluate(()=>changed({notifyClientMessages:{newValue:true}},'local'));
     await queue(page,[{...rows[0],lastMessage:{_id:'first-after-enable',tipoDestinatario:'usuarios'}},rows[1]]);
     assert.equal(await count(),4);
+  } else {
+    await page.locator('.chat').first().evaluate(el => {
+      el.querySelector('.tags').innerHTML='<span class="tag">ASSUMIDO AGENTE SMITH</span><span class="tag">SMITH V2</span>';
+    });
+    await page.evaluate(()=>call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
+    await page.waitForTimeout(750);
+    await page.evaluate(()=>call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
+    assert.equal(await page.evaluate(() => sent.filter(message=>message.type==='ATTENDANCE_SCAN').at(-1).items.find(item=>item.id==='chat-1').silent),true);
   }
   assert.equal(await page.locator(target).isVisible(),true);
   assert.deepEqual(errors,[]);
@@ -311,6 +326,11 @@ async function popup(browser) {
     return route.fulfill({path:path.join(root,'popup',name)});
   });
   await page.goto('https://popup.example/popup.html');
+  for (const id of ['testSound','testHighlight','testReceivedAlert','testFinishedAlert','highlightProtocol']) {
+    assert.equal(await page.locator('#'+id).count(),0);
+  }
+  assert.equal(await page.getByRole('heading',{name:'Manutenção'}).count(),1);
+  assert.equal(await page.locator('#clearHighlight').count(),1);
   const preset = ['AJUDA','FINALIZADO','AJUDANDO','PAUSA','ASSUMIDO'].map(status => status+' AGENTE SMITH');
   const selected = ['ASSUMIDO','AJUDA','PAUSA','FINALIZADO','AJUDANDO'].map(status => status+' AGENTE SMITH');
   assert.equal(await page.locator('#groupByTag').isChecked(),false);

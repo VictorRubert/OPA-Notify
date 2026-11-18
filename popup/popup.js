@@ -48,10 +48,10 @@ function cacheElements() {
     'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
     'volume', 'volumeValue', 'soundPreset', 'toastDuration', 'toastDurationValue', 'toastPosition',
     'customSoundArea', 'customSoundFile', 'customSoundName',
-    'copyDiagnostics', 'testSound', 'testReceivedAlert', 'testFinishedAlert', 'resetBaseline',
+    'copyDiagnostics', 'resetBaseline',
     'feedback', 'currentCount', 'statusText', 'lastCheck', 'statusDot',
     'attendanceHistory', 'historyEmpty', 'historyCount',
-    'highlightProtocol', 'testHighlight', 'clearHighlight',
+    'clearHighlight',
     'groupByTag', 'notifyClientMessages', 'messageScope', 'tagMode', 'groupOptions',
     'scopeArea', 'priorityArea', 'groupTags', 'priorityTags', 'groupTagForm',
     'priorityTagForm', 'groupTagName', 'priorityTagName'
@@ -97,21 +97,7 @@ function bindEvents() {
   elements.volume.addEventListener('change', saveSimpleSettings);
   elements.customSoundFile.addEventListener('change', handleCustomSoundFile);
   elements.copyDiagnostics.addEventListener('click', copyDiagnostics);
-  elements.testSound.addEventListener('click', testSound);
-  elements.testReceivedAlert.addEventListener('click', () => testAlert('received'));
-  elements.testFinishedAlert.addEventListener('click', () => testAlert('finished'));
-  elements.testHighlight.addEventListener('click', testProtocolHighlight);
   elements.clearHighlight.addEventListener('click', clearProtocolHighlight);
-  elements.highlightProtocol.addEventListener('input', () => {
-    elements.highlightProtocol.value = elements.highlightProtocol.value
-      .toUpperCase()
-      .replace(/\s+/g, '');
-  });
-  elements.highlightProtocol.addEventListener('keydown', event => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    testProtocolHighlight();
-  });
   elements.resetBaseline.addEventListener('click', resetBaseline);
 }
 
@@ -306,84 +292,6 @@ function readFileAsDataUrl(file) {
     reader.onerror = () => reject(reader.error || new Error('Erro de leitura do arquivo.'));
     reader.readAsDataURL(file);
   });
-}
-
-async function testSound() {
-  setBusy(elements.testSound, true, 'Tocando...');
-  try {
-    await saveSimpleSettings();
-    const response = await chrome.runtime.sendMessage({ type: 'TEST_SOUND' });
-    if (!response?.success) throw new Error(response?.error || 'Não foi possível tocar o som.');
-    showFeedback('Som reproduzido.');
-  } catch (error) {
-    showFeedback(error.message, true);
-  } finally {
-    setBusy(elements.testSound, false, 'Testar som');
-  }
-}
-
-async function testAlert(eventType) {
-  const isFinished = eventType === 'finished';
-  const button = isFinished ? elements.testFinishedAlert : elements.testReceivedAlert;
-  const normalText = isFinished
-    ? 'Simular atendimento finalizado'
-    : 'Simular atendimento recebido';
-
-  setBusy(button, true, 'Enviando teste...');
-  try {
-    await saveSimpleSettings();
-    const response = await chrome.runtime.sendMessage({
-      type: isFinished ? 'TEST_FINISHED_ALERT' : 'TEST_RECEIVED_ALERT'
-    });
-    if (!response?.success) throw new Error(response?.error || 'Falha no teste.');
-    showFeedback(
-      isFinished
-        ? 'Aviso de finalização enviado ao Opa.'
-        : 'Aviso de recebimento enviado ao Opa.'
-    );
-  } catch (error) {
-    showFeedback(error.message, true);
-  } finally {
-    setBusy(button, false, normalText);
-  }
-}
-
-
-async function testProtocolHighlight() {
-  const protocol = String(elements.highlightProtocol.value || '')
-    .trim()
-    .toUpperCase();
-
-  if (!/^OPA\d{6,}$/.test(protocol)) {
-    showFeedback('Informe um protocolo válido, por exemplo OPA20260012345.', true);
-    elements.highlightProtocol.focus();
-    return;
-  }
-
-  setBusy(elements.testHighlight, true, 'Buscando...');
-
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: 'TEST_HIGHLIGHT_PROTOCOL',
-      protocol
-    });
-
-    if (!response?.success) {
-      throw new Error(response?.error || 'Não foi possível aplicar o destaque roxo.');
-    }
-
-    elements.highlightProtocol.value = response.protocol || protocol;
-    if (elements.colorHighlightEnabled.checked) {
-      showFeedback(`Destaque roxo aplicado em ${response.protocol || protocol}.`);
-    } else {
-      showFeedback(`Protocolo ${response.protocol || protocol} selecionado, mas o destaque roxo está desativado.`);
-    }
-    setTimeout(updateStatus, 400);
-  } catch (error) {
-    showFeedback(error.message, true);
-  } finally {
-    setBusy(elements.testHighlight, false, 'Destacar');
-  }
 }
 
 async function clearProtocolHighlight() {

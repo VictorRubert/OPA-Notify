@@ -1,4 +1,4 @@
-# Opa!Notify v1.6.3
+# Opa!Notify v1.6.4
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -18,6 +18,7 @@ Após instalar ou atualizar, **recarregue a aba do Opa** para conectar o monitor
 - Destaque e lembrete para motivo não preenchido.
 - Na interface nova, etiqueta de inatividade no cartão: laranja quando aguarda o cliente e vermelha quando aguarda resposta do atendente. O tempo vem da última mensagem; se o Opa omitir a data dela, usa o horário de atualização do atendimento. Mensagens automáticas não recebem essa etiqueta.
 - Sons integrados ou personalizados em MP3, WAV ou OGG (até 2 MB).
+- Atendimentos cujo único status é **ASSUMIDO AGENTE SMITH** não geram avisos de entrada, saída ou mensagem, nem recebem o destaque de novo atendimento. Outras etiquetas, como prioridade ou cliente, não mudam essa regra.
 
 Os avisos de recebimento e de mensagem abrem a conversa ao clicar. A conversa que já estiver aberta na tela do atendente não gera avisos. O cartão de saída permite copiar o protocolo.
 
@@ -38,8 +39,8 @@ Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada
 - **Avisar novas mensagens do cliente** vem ligado para todos os atendimentos nas novas instalações. A atualização respeita a preferência já salva. Escolha todos os atendimentos ou somente etiquetas prioritárias. Na interface nova, a extensão lê o identificador e a direção da mensagem quando o Opa os disponibiliza. Se várias mensagens chegam entre duas leituras e o Opa expõe apenas a última, pode haver um único aviso. O cartão mostra a empresa e o texto recebido; fotos, áudios e vídeos aparecem como “Enviou uma foto”, “Enviou um áudio” e “Enviou um vídeo”. Avisos de mensagem não tocam som nem geram notificações do sistema. Quando o Opa não disponibiliza o texto, mostra “Mensagem recebida”. Na antiga, a extensão acompanha o indicador de não lida e o contador quando disponível.
 - **Agrupar por etiqueta** começa desligado. Ao ativar, **Somente as listadas** já vem preenchido. A fila usa as etiquetas **AGENTE SMITH** na ordem **AJUDA → FINALIZADO → AJUDANDO → PAUSA → ASSUMIDO**, de cima para baixo. Os demais atendimentos ficam em **Sem grupo**. Você pode editar as listas e a ordem no popup.
 - **Visual:** destaque roxo, tipo de preenchimento e controles de destaque, pisca e pop-up do motivo.
-- **Som:** escolha do áudio, arquivo personalizado, volume e teste.
-- **Teste e manutenção:** simulações, teste e remoção de destaque e **Refazer leitura inicial**, que recria a base sem apagar o histórico.
+- **Som:** escolha do áudio, arquivo personalizado e volume.
+- **Manutenção:** remoção da marcação atual, **Refazer leitura inicial**, que recria a base sem apagar o histórico, e **Copiar diagnóstico**.
 
 ## Permissões e limites
 
@@ -49,7 +50,7 @@ As notificações do sistema exigem permissão e podem ser ocultadas pelo modo N
 
 ## Testes
 
-Use as simulações do popup com o Opa aberto. Em caso de falha, **Copiar diagnóstico**, em Teste e manutenção, copia as versões, configurações dos canais, resultados de entrega e nomes/contagens dos eventos da fila, sem conversas ou dados dos clientes. Para os testes automatizados de lógica, execute com Node.js:
+Em caso de falha, **Copiar diagnóstico**, em Manutenção, copia as versões, configurações dos canais, resultados de entrega e nomes/contagens dos eventos da fila, sem conversas ou dados dos clientes. Para os testes automatizados de lógica, execute com Node.js:
 
 ```sh
 node --test tests/*.test.cjs

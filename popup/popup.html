@@ -202,7 +202,7 @@
       <label class="toggle-row">
         <span>
           <strong>Reproduzir som</strong>
-          <small>Usa o mesmo som nos avisos de atendimento e mensagem.</small>
+          <small>Toca nos avisos de entrada e saída de atendimentos.</small>
         </span>
         <input type="checkbox" id="soundEnabled">
         <span class="switch" aria-hidden="true"></span>
@@ -232,39 +232,11 @@
         <output id="volumeValue">80%</output>
       </label>
 
-      <button class="button secondary" id="testSound" type="button">Testar som</button>
     </section>
 
     <section class="card">
-      <h2>Teste e manutenção</h2>
-
-      <div class="protocol-highlight-test">
-        <label for="highlightProtocol">
-          <strong>Testar destaque roxo</strong>
-          <small>Digite um protocolo visível em “Meus atendimentos”.</small>
-        </label>
-        <div class="protocol-highlight-row">
-          <input
-            id="highlightProtocol"
-            type="text"
-            inputmode="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="OPA20260012345"
-            maxlength="32"
-          >
-          <button class="button purple compact" id="testHighlight" type="button">Destacar</button>
-        </div>
-        <button class="button clear-highlight" id="clearHighlight" type="button" disabled>
-          Remover marcação atual
-        </button>
-        <p class="hint purple-hint">
-          O preenchimento permanece até outro atendimento ser recebido, outro protocolo ser testado ou ser removido manualmente.
-        </p>
-      </div>
-
-      <button class="button primary" id="testReceivedAlert" type="button">Simular atendimento recebido</button>
-      <button class="button success" id="testFinishedAlert" type="button">Simular atendimento finalizado</button>
+      <h2>Manutenção</h2>
+      <button class="button clear-highlight" id="clearHighlight" type="button" disabled>Remover marcação atual</button>
       <button class="button secondary" id="resetBaseline" type="button">Refazer leitura inicial</button>
       <button class="button secondary" id="copyDiagnostics" type="button">Copiar diagnóstico</button>
       <p class="hint">Ao refazer a leitura, os atendimentos atualmente visíveis viram a nova base e não geram aviso.</p>
@@ -273,7 +245,7 @@
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Opa!Notify 1.6.3</footer>
+  <footer>Opa!Notify 1.6.4</footer>
   <script src="../content/tag-settings.js"></script>
   <script src="popup.js"></script>
 </body>

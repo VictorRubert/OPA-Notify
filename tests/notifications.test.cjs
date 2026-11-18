@@ -24,7 +24,7 @@ function setup() {
       update: async (...args) => actions.push(['tab', ...args]),
       sendMessage: async (id, message) => {
         if (id === 4) throw Error('Protected page');
-        messages.push({id, ...message}); return {ready:true,success:true,version:'1.6.3'};
+        messages.push({id, ...message}); return {ready:true,success:true,version:'1.6.4'};
       }
     },
     scripting: {executeScript:async args => {injections.push(args); throw Error('Protected page');}},
@@ -133,7 +133,7 @@ test('Notification click opens the new-domain source tab',async()=>{
 
 test('Visual simulations report delivery failures instead of claiming success',async()=>{
  const s=setup();
- s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.3'}:{success:false,error:'Card render failed'};
+ s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.4'}:{success:false,error:'Card render failed'};
  s.ctx.args=[s.attendance,{tab:{id:1}},{visualEnabled:true,soundEnabled:false},'received',true];
  await assert.rejects(vm.runInContext('announceAttendance(...args)',s.ctx),/Card render failed/);
 });
@@ -152,7 +152,7 @@ test('Simulation chooses the active new-domain tab without relying on the native
 test('Missing Opa tab diagnostic includes running version and host, without URL parameters',async()=>{
  const s=setup();s.chrome.tabs.query=async filter=>filter.active?[{id:9,url:'https://other.example/path?secret=private'}]:[];
  const result=await vm.runInContext('testAlert("received")',s.ctx);
- assert.equal(result.success,false);assert.match(result.error,/1.6.3/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
+ assert.equal(result.success,false);assert.match(result.error,/1.6.4/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
 });
 function queueScenario(){
  const s=setup();let time=1000000;
@@ -206,7 +206,7 @@ test('Departure cards are delivered to other Opa tabs as well as ordinary sites'
  assert.equal(s.session['lastDelivery:finished'].system,'delivered');
 });
 test('Delivery diagnostics distinguish visual failure from successful system notification',async()=>{
- const s=setup();s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.3'}:{success:false,error:'Render failed'};
+ const s=setup();s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.4'}:{success:false,error:'Render failed'};
  s.ctx.console={...console,warn(){}};
  await s.announce({otherTabsEnabled:false},'finished');
  const delivery=s.session['lastDelivery:finished'];assert.equal(delivery.sourceVisual,'failed');assert.equal(delivery.system,'delivered');
@@ -291,6 +291,48 @@ test('Client messages stay in Chrome cards, carry the text and respect opt-out',
   s.ctx.signal.cursor = 'third'; await signal();
   assert.equal(cards().length, 5);
   assert.equal(s.notifications.length, 0);
+});
+
+test('Only ASSUMIDO AGENTE SMITH suppresses arrival, departure, message and new highlight', async () => {
+  const s = queueScenario();
+  const green = {...s.attendance,id:'green-chat',silent:true};
+  const active = {id:'active-chat',protocol:'OPA2026123124',company:'Outro atendimento'};
+  const classify = tags => {s.ctx.tags=tags;return vm.runInContext('OpaTagSettings.isAssumedOnly(tags)',s.ctx);};
+  assert.equal(classify(['ASSUMIDO AGENTE SMITH','SMITH V2','Cadu Autônomo']),true);
+  assert.equal(classify(['assumido  agente smith','AJUDA AGENTE SMITH']),false);
+  assert.equal(classify(['ASSUMIDO AGENTE SMITH','PAUSA AGENTE SMITH']),false);
+  assert.equal(classify(['ASSUMIDO AGENTE SMITH','ASSUMIDO OUTRO AGENTE']),false);
+  await s.scan([], {initialRead:true,completeSnapshot:true});
+  s.advance(1000);
+  const arrived = await s.scan([green,active], {completeSnapshot:true});
+  assert.equal(arrived.newCount,1);
+  assert.deepEqual(s.notifications.map(n=>n.message),[active.protocol+' - '+active.company]);
+  assert.equal(s.local.attendanceHistory.length,1);
+  assert.equal(s.local.attendanceHistory[0].protocol,active.protocol);
+  assert.equal(s.local.highlightedAttendanceProtocol,active.protocol);
+  assert.equal(s.local.attendanceSnapshot.find(item=>item.id===green.id).silent,true);
+  s.ctx.signal={type:'CLIENT_MESSAGE',attendance:green,tags:['ASSUMIDO AGENTE SMITH','SMITH V2'],cursor:'green-message',text:'Olá'};
+  const signal=()=>vm.runInContext('processQueueSignal(signal,{tab:{id:1}})',s.ctx);
+  await signal();
+  assert(!s.messages.some(message=>message.eventType==='message'));
+  s.ctx.signal.tags.push('AJUDA AGENTE SMITH');
+  s.ctx.signal.cursor='active-message';
+  await signal();
+  assert(s.messages.some(message=>message.eventType==='message'));
+  s.ctx.signal={type:'VISIBLE_ARRIVAL',attendance:{...green,id:'green-visible',protocol:'',tags:['ASSUMIDO AGENTE SMITH']}};
+  await signal();
+  assert.equal(s.notifications.length,1);
+  assert.equal(s.session.visibleArrivals,undefined);
+  s.advance(10000);
+  await s.scan([], {completeSnapshot:true});
+  s.advance(8000);
+  const departed=await s.scan([], {completeSnapshot:true});
+  assert.equal(departed.finishedCount,1);
+  assert.equal(s.notifications.filter(n=>n.id.includes(':finished:')).length,1);
+  const previousHighlight=queueScenario();
+  previousHighlight.local.highlightedAttendanceProtocol=green.protocol;
+  await previousHighlight.scan([green],{initialRead:true,completeSnapshot:true});
+  assert.equal(previousHighlight.local.highlightedAttendanceProtocol,undefined);
 });
 
 test('Upgrade seeds the five tag rules once and keeps saved preferences', async () => {

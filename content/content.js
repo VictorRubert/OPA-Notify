@@ -135,7 +135,7 @@
 
     newMetadata = new Map(items.map(item => [item.id, item]));
     for (const id of cursors.keys()) if (!newMetadata.has(id)) cursors.delete(id);
-    newQueue = items.map(({ id, protocol, company }) => ({ id, protocol, company }));
+    newQueue = items.map(({ id, protocol, company, tags }) => ({ id, protocol, company, silent: OpaTagSettings.isAssumedOnly(tags) }));
     if (!viewInitialized && personalListAvailable()) {
       for (const card of document.querySelectorAll(NEW_CARD)) visibleBaseline.add(cardId(card));
       viewInitialized = true;
@@ -762,7 +762,7 @@
     }
 
     const fingerprint = items
-      .map(item => `${item.protocol}:${item.id}`)
+      .map(item => `${item.protocol}:${item.id}:${item.silent === true ? 'silent' : 'active'}`)
       .sort()
       .join('|');
     const now = Date.now();
@@ -815,7 +815,9 @@
       const id = chat.getAttribute('data-id')?.trim() || '';
 
       if (!company || !protocol) continue;
-      result.set(protocol, { id, protocol, company });
+      const tags = [...chat.querySelectorAll('.tags .tag:not([data-opa-notify-tag]):not([data-opalert-tag]):not([id^="tag-departamento-"])')]
+        .map(tag => tag.textContent.trim()).filter(Boolean);
+      result.set(protocol, { id, protocol, company, silent: OpaTagSettings.isAssumedOnly(tags) });
     }
 
     return [...result.values()];
@@ -844,7 +846,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.6.3' });
+      sendResponse({ success: true, ready: true, version: '1.6.4' });
       return false;
     }
 
@@ -868,7 +870,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.6.3', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.6.4', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 
@@ -1100,9 +1102,13 @@
     let found = false;
 
     for (const chat of chats) {
+      const tags = chat.hasAttribute('itemid')
+        ? newMetadata.get(cardId(chat))?.tags || (chat.getAttribute('data-tag-names') || '').split('|')
+        : [...chat.querySelectorAll('.tags .tag:not([data-opa-notify-tag]):not([data-opalert-tag]):not([id^="tag-departamento-"])')].map(tag => tag.textContent.trim());
       const shouldHighlight = Boolean(
         settings.colorHighlightEnabled &&
         highlightedProtocol &&
+        !OpaTagSettings.isAssumedOnly(tags) &&
         extractProtocol(chat) === highlightedProtocol
       );
 

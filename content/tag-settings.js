@@ -37,5 +37,13 @@
   }
 
   const isStatus = name => statuses.includes(normalize(name)) || defaults.groupTags.includes(normalize(name));
-  globalThis.OpaTagSettings = Object.freeze({ defaults, tagRank, isStatus, migrateDefaults });
+  function isAssumedOnly(tags) {
+    if (!Array.isArray(tags)) return false;
+    const names = tags.filter(name => typeof name === 'string').map(name => normalize(name.replace(/\s+/g, ' ')));
+    const assumed = 'ASSUMIDO AGENTE SMITH';
+    return names.includes(assumed) && !names.some(name =>
+      name !== assumed && /^(?:AJUDANDO|AJUDA|FINALIZADO|PAUSADO|PAUSA|ASSUMIDO)(?:$|[\s:–—-])/.test(name)
+    );
+  }
+  globalThis.OpaTagSettings = Object.freeze({ defaults, tagRank, isStatus, isAssumedOnly, migrateDefaults });
 })();

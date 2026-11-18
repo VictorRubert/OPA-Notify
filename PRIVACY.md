@@ -13,7 +13,7 @@ O Opa!Notify é uma extensão para acompanhar a fila **Meus atendimentos** no Op
 
 ## Armazenamento e conservação
 
-O armazenamento local da extensão no Chrome contém as preferências, o áudio personalizado, a base atual de atendimentos, o histórico dos cinco últimos atendimentos recebidos e dados temporários necessários para evitar avisos duplicados ou confirmar uma saída da fila. A base e o histórico podem conter protocolo, identificador, nome da empresa ou do contato e horário. O texto das mensagens de clientes não é salvo nesse histórico nem na base de atendimentos.
+O armazenamento local da extensão no Chrome contém as preferências, o áudio personalizado, a base atual de atendimentos, o histórico dos cinco últimos atendimentos recebidos e dados temporários necessários para evitar avisos duplicados ou confirmar uma saída da fila. A base e o histórico podem conter protocolo, identificador, nome da empresa ou do contato e horário. A base também guarda um indicador para silenciar atendimentos cujo único status é **ASSUMIDO AGENTE SMITH**. O texto das mensagens de clientes não é salvo nesse histórico nem na base de atendimentos.
 
 O armazenamento de sessão do Chrome contém identificadores e horários de eventos recentes, resultados de entrega dos avisos e, enquanto uma notificação do sistema de entrada ou saída estiver ativa, os dados necessários para abri-la no Opa. Esses dados de sessão são descartados quando a sessão do navegador termina. A base e o histórico locais permanecem enquanto os dados da extensão estiverem no Chrome. O usuário pode remover esses dados apagando os dados da extensão ou desinstalando-a.
 
