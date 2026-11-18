@@ -28,7 +28,7 @@ async function run(browser, modernUI) {
   page.on('pageerror', err => errors.push(err.message));
   await page.route(origin + '/**', r => r.fulfill({ contentType:'text/html', body: modernUI ? modern : legacy }));
   await page.addInitScript(() => {
-    window.settings = { notifyClientMessages: true, groupByTag: true, priorityTags: ['VIP'], tagMode:'exclude', groupTags: ['B'] };
+    window.settings = { groupByTag: true, priorityTags: ['VIP'], tagMode:'exclude', groupTags: ['B'] };
     window.sent = [];
     window.chrome = {
       storage: { local: { get: async () => settings }, onChanged: { addListener(fn) { window.changed = fn; } } },
@@ -257,8 +257,8 @@ async function popup(browser) {
   assert.deepEqual(await page.locator('#priorityTags li span').allTextContents(),preset);
   assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),selected);
   assert.equal(await page.locator('#tagMode').inputValue(),'include');
-  assert.equal(await page.locator('#notifyClientMessages').isChecked(),false);
-  await page.getByText('Avisar novas mensagens do cliente',{exact:true}).click();
+  assert.equal(await page.locator('#notifyClientMessages').isChecked(),true);
+  assert.equal(await page.locator('#messageScope').inputValue(),'all');
   await page.selectOption('#messageScope','priority');
   assert(await page.locator('#priorityArea').isVisible());
   for (const tag of ['A','VIP']) {
@@ -279,6 +279,8 @@ async function popup(browser) {
   await page.getByText('Avisar novas mensagens do cliente',{exact:true}).click();
   assert.equal(await page.locator('#priorityArea').isVisible(),false);
   assert.equal(await page.locator('#groupOptions').isVisible(),false);
+  await page.reload();
+  assert.equal(await page.locator('#notifyClientMessages').isChecked(),false);
   await page.close();
 }
 

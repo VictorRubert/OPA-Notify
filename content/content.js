@@ -45,7 +45,7 @@
   let scanBusy = false;
   let groups;
   const featureDefaults = {
-    ...OpaTagSettings.defaults, notifyClientMessages: false, messageScope: 'all',
+    ...OpaTagSettings.defaults, notifyClientMessages: true, messageScope: 'all',
   };
 
   function isNewInterface() { return Boolean(document.querySelector(NEW_LIST)); }

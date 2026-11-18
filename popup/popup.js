@@ -9,7 +9,7 @@ const DEFAULTS = {
   motivoBlinkEnabled: true,
   motivoChargeEnabled: true,
   notifyOnFinished: true,
-  ...OpaTagSettings.defaults, notifyClientMessages: false, messageScope: 'all',
+  ...OpaTagSettings.defaults, notifyClientMessages: true, messageScope: 'all',
   soundEnabled: true,
   volume: 0.8,
   soundPreset: 'classic',

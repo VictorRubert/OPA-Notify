@@ -250,31 +250,36 @@ test('A visible arrival opens by ID before the protocol is available and reconci
   assert.equal(s.local.attendanceHistory[0].protocol, item.protocol);
 });
 
-test('Client messages respect separate opt-in, scopes and channels, duplicate IDs and click target', async () => {
+test('Client messages default to enabled and respect opt-out, scopes and channels, duplicate IDs and click target', async () => {
   const s = queueScenario();
   const item = { ...s.attendance, id: 'my-chat' };
   s.ctx.signal = { type: 'CLIENT_MESSAGE', attendance: item, tags: ['VIP'], cursor: 'first' };
   const signal = () => vm.runInContext('processQueueSignal(signal,{tab:{id:1}})',s.ctx);
   await signal();
+  assert.equal(s.notifications.length,1);
+  s.ctx.signal.cursor = 'after-default';
+  s.local.notifyClientMessages = false;
+  await signal();
+  assert.equal(s.notifications.length,1);
   s.local.notifyClientMessages = true;
   s.local.groupByTag = false;
   s.local.messageScope = 'priority';
   await signal();
-  assert.equal(s.notifications.length, 0);
+  assert.equal(s.notifications.length, 1);
   s.local.priorityTags = ['vip'];
   s.local.otherTabsEnabled = true;
   await signal(); await signal();
-  assert.equal(s.notifications.length, 1);
-  assert.equal(s.notifications[0].title, 'Nova mensagem do cliente!');
-  await s.click(s.notifications[0].id);
+  assert.equal(s.notifications.length, 2);
+  assert.equal(s.notifications[1].title, 'Nova mensagem do cliente!');
+  await s.click(s.notifications[1].id);
   assert(s.messages.some(m => m.type === 'FOCUS_ATTENDANCE' && m.attendance.id === item.id));
   assert(s.messages.some(m => m.eventType === 'message' && m.id === 2 && m.sourceTabId === 1));
   s.ctx.signal.cursor = 'second';
   await signal();
-  assert.equal(s.notifications.length, 2);
+  assert.equal(s.notifications.length, 3);
   s.local.enabled = false;
   s.ctx.signal.cursor = 'third'; await signal();
-  assert.equal(s.notifications.length, 2);
+  assert.equal(s.notifications.length, 3);
 });
 
 test('Upgrade seeds the five tag rules once and keeps saved preferences', async () => {

@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   motivoChargeEnabled: true,
   notifyOnFinished: true,
   ...OpaTagSettings.defaults,
-  notifyClientMessages: false,
+  notifyClientMessages: true,
   messageScope: 'all',
   soundEnabled: true,
   volume: 0.8,
