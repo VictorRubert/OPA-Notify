@@ -58,4 +58,6 @@ Para verificar a leitura e os destaques nas duas interfaces com exemplos fictíc
 
 Os testes usam APIs Chrome e eventos de rede simulados; a integração deve ser validada em uma instalação real da extensão.
 
+Consulte a [Política de Privacidade](PRIVACY.md).
+
 O agrupamento e o acompanhamento de mensagens usam o Opa!Alert de JanineMilena como referência. [Licença MIT](LICENSE).
