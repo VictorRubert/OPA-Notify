@@ -75,6 +75,9 @@ async function run(browser, modernUI) {
     assert.equal(await count(), 2);
     await queue(page, [{...rows[0],lastMessage:{...incoming,_id:'note',systemNoteMessage:true}},rows[1]]);
     assert.equal(await count(), 2);
+    await queue(page, [{...rows[0],lastMessage:{...incoming,_id:'media',tipo:'audio',mensagem:'arquivo-privado.ogg'}},rows[1]]);
+    assert.equal(await count(), 3);
+    assert.equal(await page.evaluate(() => sent.filter(m=>m.type==='CLIENT_MESSAGE').at(-1).text),'Enviou um áudio');
     // A visible company missing from repeated complete snapshots emits exactly one positive signal.
     await page.locator('ul').evaluate((node, row) => node.insertAdjacentHTML('beforeend',row),card(3));
     await page.waitForFunction(() => sent.some(m => m.type === 'VISIBLE_ARRIVAL'));
@@ -114,11 +117,11 @@ async function run(browser, modernUI) {
   await page.evaluate(()=>changed({groupByTag:{newValue:false},notifyClientMessages:{newValue:false}},'local'));
   assert.equal(await page.locator('.opa-groups-head').count(),0);
   if (modernUI) await queue(page,[{...rows[0],lastMessage:{_id:'off',tipoDestinatario:'usuarios'}},rows[1]]);
-  assert.equal(await count(),modernUI?2:1);
+  assert.equal(await count(),modernUI?3:1);
   if (modernUI) {
     await page.evaluate(()=>changed({notifyClientMessages:{newValue:true}},'local'));
     await queue(page,[{...rows[0],lastMessage:{_id:'first-after-enable',tipoDestinatario:'usuarios'}},rows[1]]);
-    assert.equal(await count(),3);
+    assert.equal(await count(),4);
   }
   assert.equal(await page.locator(target).isVisible(),true);
   assert.deepEqual(errors,[]);

@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '1.6.1';
+const EXTENSION_VERSION = '1.6.2';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -513,7 +513,7 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
     });
   }
 
-  if (settings.soundEnabled) {
+  if (settings.soundEnabled && eventType !== 'message') {
     await playConfiguredSound(settings).catch(error => {
       console.warn('Não foi possível tocar o som:', error);
     });

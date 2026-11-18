@@ -105,3 +105,25 @@ test('Client direction and distinct IDs survive the bridge without chat text or 
     assert(!JSON.stringify(item).includes('project'));
   }
 });
+
+test('Media previews replace file names in queue snapshots and direct message updates', () => {
+  const s = setup();
+  const cases = [
+    [{tipo:'imagem', mensagem:'foto-pessoal.jpg'}, 'Enviou uma foto'],
+    [{tipo:'áudio', mensagem:'voz-cliente.ogg'}, 'Enviou um áudio'],
+    [{tipo:'video', mensagem:'video-cliente.mp4'}, 'Enviou um vídeo'],
+    [{tipo:'arquivo', objeto:{mimetype:'image/png'}, mensagem:'documento-privado.png'}, 'Enviou uma foto'],
+    [{tipo:'arquivo', mensagem:'https://example.com/segredo.m4a?token=private'}, 'Enviou um áudio'],
+    [{tipo:'texto', mensagem:'Preciso abrir a foto.jpg'}, 'Preciso abrir a foto.jpg']
+  ];
+  for (const [index, [media, expected]] of cases.entries()) {
+    const lastMessage = {_id:'media-'+index, tipoDestinatario:'usuarios', ...media};
+    s.socket.receive('42'+JSON.stringify([EVENT,{page:1,hasMore:false,items:[{_id:'chat',lastMessage}]}]));
+    const page = s.messages.filter(message => message.kind === 'page').at(-1);
+    assert.equal(page.items[0].cursor.text, expected);
+    s.socket.receive('42'+JSON.stringify(['message-update',{...lastMessage,id_rota:'chat'}]));
+    const update = s.messages.filter(message => message.kind === 'message').at(-1);
+    assert.equal(update.cursor.text, expected);
+    if (index < 5) assert(!JSON.stringify(s.messages.slice(-3)).includes(media.mensagem));
+  }
+});

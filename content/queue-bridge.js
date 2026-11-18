@@ -56,6 +56,25 @@
     const parsed = decode(value);
     return parsed?.[0] === EVENT ? parsed[1] : null;
   }
+  function mediaPreview(message) {
+    const media = message?.objeto && typeof message.objeto === 'object' ? message.objeto : {};
+    const types = [message?.tipo, media.tipo, media.type, media.mediaType, media.mimeType, media.mimetype, media.mime, media.contentType];
+    for (const value of types) {
+      if (typeof value !== 'string') continue;
+      const type = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      if (/^(?:image|imagem|foto)(?:\/|$)/.test(type)) return 'Enviou uma foto';
+      if (/^audio(?:\/|$)/.test(type)) return 'Enviou um áudio';
+      if (/^video(?:\/|$)/.test(type)) return 'Enviou um vídeo';
+    }
+    // Some Opa file messages identify the media only by its file name.
+    if (typeof message?.tipo !== 'string' || !['arquivo', 'anexo', 'documento', 'midia', 'mídia', 'file', 'media'].includes(message.tipo.toLowerCase())) return '';
+    const file = [media.nome, media.name, media.filename, media.fileName, message.mensagem].find(value => typeof value === 'string' && value.trim());
+    const extension = file?.split(/[?#]/, 1)[0].match(/\.([a-z0-9]+)\s*$/i)?.[1]?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'avif'].includes(extension)) return 'Enviou uma foto';
+    if (['mp3', 'ogg', 'opus', 'wav', 'm4a', 'aac'].includes(extension)) return 'Enviou um áudio';
+    if (['mp4', 'mov', 'webm', 'mkv', 'avi'].includes(extension)) return 'Enviou um vídeo';
+    return '';
+  }
   // Forward only the latest customer message needed for the on-screen alert.
   function messageCursor(message) {
     if (typeof message?._id !== 'string' || !message._id) return null;
@@ -63,7 +82,7 @@
       !message.systemMessage && !message.systemNoteMessage;
     return {
       id: message._id.slice(0, 120),
-      text: incoming && typeof message.mensagem === 'string' ? message.mensagem.trim().slice(0, 500) : '',
+      text: incoming ? mediaPreview(message) || (typeof message.mensagem === 'string' ? message.mensagem.trim().slice(0, 500) : '') : '',
       incoming
     };
   }
