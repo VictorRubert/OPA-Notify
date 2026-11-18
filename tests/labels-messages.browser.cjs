@@ -89,7 +89,12 @@ async function run(browser, modernUI) {
   await page.locator(target).evaluate(el => el.onclick = () => window.opened = 'chat-1');
   const alert = { type:'SHOW_ATTENDANCE_EVENT', eventType:'message', attendance:{id:'chat-1',company,protocol:'OPA100001'} };
   await page.evaluate(m => call(m),alert);
-  await page.locator('.toast').filter({hasText:'Nova mensagem do cliente'}).click();
+  const messageCard = page.locator('.toast.message').first();
+  assert.equal(await messageCard.locator('.heading').innerText(),'Mensagem do cliente');
+  assert.equal(await messageCard.locator('.company').innerText(),company);
+  assert.equal(await messageCard.locator('.protocol').innerText(),'OPA100001');
+  assert.equal(await messageCard.evaluate(el=>getComputedStyle(el).borderLeftColor),'rgb(69, 155, 245)');
+  await messageCard.getByText('Abrir conversa →',{exact:true}).click();
   assert.equal(await page.evaluate(()=>window.opened),'chat-1');
   assert.equal(await head.getAttribute('aria-expanded'),'true');
   await page.evaluate(m=>call(m),{...alert,sourceTabId:42});

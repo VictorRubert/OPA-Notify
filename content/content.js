@@ -1351,6 +1351,16 @@
         --event-color-bg: rgba(62, 207, 142, 0.16);
         cursor: copy;
       }
+      .toast.message {
+        --event-color: #459bf5;
+        --event-color-light: #93c9ff;
+        --event-color-bg: rgba(69, 155, 245, .16);
+        background: #172338;
+      }
+      .message .company { font-size: 16px; font-weight: 700; }
+      .message .protocol { color: #b4c0d3; overflow-wrap: anywhere; }
+      .message-action { margin-top: 8px; color: var(--event-color-light); font-size: 12px; font-weight: 650; }
+      .message:focus-visible { outline: 2px solid var(--event-color-light); outline-offset: 2px; }
       .toast.copied {
         --event-color: #5da9ff;
         --event-color-light: #82beff;
@@ -1463,10 +1473,14 @@
     toastContainer.style.flexDirection = bottom ? 'column-reverse' : 'column';
 
     const isFinished = eventType === 'finished';
-    const receiptTitle = eventType === 'message' ? 'Nova mensagem do cliente' : 'Novo atendimento recebido';
+    const { title, iconSvg } = {
+      received: { title: 'Novo atendimento recebido', iconSvg: bellIconSvg },
+      finished: { title: 'Atendimento Finalizado', iconSvg: copyIconSvg },
+      message: { title: 'Mensagem do cliente', iconSvg: messageIconSvg }
+    }[eventType];
     const duration = clamp(Number(durationValue) || 6000, 5000, 30000);
     const toast = document.createElement('article');
-    toast.className = `toast ${isFinished ? 'finished' : 'received'}`;
+    toast.className = `toast ${eventType}`;
     toast.setAttribute('role', 'alert');
     toast.tabIndex = 0;
     toast.addEventListener('keydown', event => {
@@ -1479,19 +1493,17 @@
       'aria-label',
       isFinished
         ? 'Atendimento finalizado. Clique para copiar o protocolo.'
-        : receiptTitle + '. Clique para abrir a conversa.'
+        : title + '. Clique para abrir a conversa.'
     );
 
     const icon = document.createElement('div');
     icon.className = 'icon';
-    icon.innerHTML = isFinished ? copyIconSvg() : bellIconSvg();
+    icon.innerHTML = iconSvg();
 
     const content = document.createElement('div');
     const heading = document.createElement('p');
     heading.className = 'heading';
-    heading.textContent = isFinished
-      ? 'Atendimento Finalizado'
-      : receiptTitle;
+    heading.textContent = title;
 
     if (isTest) {
       const badge = document.createElement('span');
@@ -1509,6 +1521,13 @@
     protocol.textContent = attendance?.protocol || '';
 
     content.append(heading, company, protocol);
+
+    if (eventType === 'message') {
+      const action = document.createElement('div');
+      action.className = 'message-action';
+      action.textContent = 'Abrir conversa →';
+      content.appendChild(action);
+    }
 
     if (isFinished) {
       const hint = document.createElement('div');
@@ -1589,6 +1608,16 @@
     return `
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 22a2.4 2.4 0 0 0 2.35-2h-4.7A2.4 2.4 0 0 0 12 22Zm7-5.2-1.7-2.1V9a5.32 5.32 0 0 0-4.1-5.17V3a1.2 1.2 0 1 0-2.4 0v.83A5.32 5.32 0 0 0 6.7 9v5.7L5 16.8V18h14v-1.2Z"/>
+      </svg>`;
+  }
+
+  function messageIconSvg() {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 3.5h14a2.5 2.5 0 0 1 2.5 2.5v9a2.5 2.5 0 0 1-2.5 2.5H10l-6 4v-4.2A2.5 2.5 0 0 1 2.5 15V6A2.5 2.5 0 0 1 5 3.5Z"/>
+          <path d="M7 8.5h10M7 12.5h6"/>
+        </g>
       </svg>`;
   }
 
