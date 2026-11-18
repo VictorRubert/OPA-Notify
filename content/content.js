@@ -495,7 +495,6 @@
     if (!grouping) groups?.clear();
     const rows = [];
     if (modern) {
-      if (!viewInitialized) { groups?.clear(); return; }
       const cards = [...root.querySelectorAll('[itemid]')];
       const mounted = new Set(cards.map(cardId));
       // A server-side departure can precede removal of the old card by React.
@@ -505,25 +504,31 @@
       for (const id of visibleCandidates.keys()) if (!mounted.has(id) || newMetadata.has(id)) visibleCandidates.delete(id);
       for (const card of cards) {
         const id = cardId(card);
-        if (!id || newMetadata.has(id)) continue;
-        const row = visibleRow(card);
-        if (grouping) rows.push({ ...row, unread: false, pinned: false });
-        if (initialSnapshotPending || visibleBaseline.has(id)) continue;
+        if (!id) continue;
+        const item = newMetadata.get(id);
+        if (grouping) {
+          const list = card.closest('ul');
+          if (list && root.contains(list)) {
+            let node = card;
+            while (node.parentElement !== list) node = node.parentElement;
+            const tags = card.getAttribute('data-tag-names');
+            rows.push({
+              id, node, tags: tags == null ? item?.tags || [] : tags.split('|').filter(Boolean),
+              unread: item?.unread === true, pinned: item?.pinned === true
+            });
+          }
+        }
+        if (!viewInitialized || item || initialSnapshotPending || visibleBaseline.has(id)) continue;
         if (!visibleCandidates.has(id)) {
           visibleCandidates.set(id, Date.now());
           scheduleScan(1500);
         } else if (Date.now() - visibleCandidates.get(id) >= 1500) {
           visibleCandidates.set(id, Infinity);
-          chrome.runtime.sendMessage({ type: 'VISIBLE_ARRIVAL', attendance: row }).then(response => {
+          chrome.runtime.sendMessage({ type: 'VISIBLE_ARRIVAL', attendance: visibleRow(card) }).then(response => {
             if (!response?.success) visibleCandidates.delete(id);
           }).catch(() => visibleCandidates.delete(id));
         } else if (Number.isFinite(visibleCandidates.get(id))) {
           scheduleScan(visibleCandidates.get(id) + 1500 - Date.now());
-        }
-      }
-      if (grouping) {
-        for (const item of newMetadata.values()) {
-          rows.push({ ...item, tags: item.tags || [], highlighted: settings.colorHighlightEnabled && item.protocol === highlightedProtocol });
         }
       }
     } else if (grouping || settings.notifyClientMessages) {
@@ -548,7 +553,7 @@
       for (const id of cursors.keys()) if (!ids.has(id)) cursors.delete(id);
     }
     if (grouping && globalThis.OpaNotifyGroups) {
-      groups ||= new globalThis.OpaNotifyGroups(focusAttendance);
+      groups ||= new globalThis.OpaNotifyGroups();
       groups.update(root, rows, settings, modern);
     }
   }
@@ -777,7 +782,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.6.0' });
+      sendResponse({ success: true, ready: true, version: '1.6.1' });
       return false;
     }
 
@@ -801,7 +806,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.6.0', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.6.1', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 

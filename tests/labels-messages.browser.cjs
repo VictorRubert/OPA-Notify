@@ -52,7 +52,7 @@ async function run(browser, modernUI) {
   const head = page.getByRole('button', {name: /VIP \(1\)/});
   await head.waitFor();
   assert((await page.locator('.opa-groups-head').allTextContents()).some(x => x.includes('Sem grupo')));
-  assert((await page.locator('.opa-groups-head').allTextContents()).some(x => x.includes('A (1)')));
+  assert.equal(await page.getByRole('button', { name:'A (1)', exact:true }).locator('.opa-groups-count').innerText(),'1');
   await head.click();
   assert.equal(await head.getAttribute('aria-expanded'), 'false');
   const count = () => page.evaluate(() => sent.filter(m => m.type === 'CLIENT_MESSAGE').length);
@@ -77,7 +77,7 @@ async function run(browser, modernUI) {
     assert.equal(await page.evaluate(() => sent.filter(m => m.type === 'VISIBLE_ARRIVAL').length),1);
     await queue(page,[...rows,item(3)]);
     await page.getByRole('button',{name:'Voltar à lista do Opa'}).click();
-    assert.equal(await page.locator('.opa-groups-panel').isVisible(),false);
+    assert.equal(await page.locator('.opa-groups-head').count(),0);
     await page.getByRole('button',{name:'Por etiquetas'}).click();
   } else {
     await page.locator('.chat').first().evaluate(el=>{const b=document.createElement('b');b.className='notifica piscar';b.textContent='1';el.append(b);});
@@ -108,6 +108,88 @@ async function run(browser, modernUI) {
   }
   assert.equal(await page.locator(target).isVisible(),true);
   assert.deepEqual(errors,[]);
+  await page.close();
+}
+
+async function virtualCards(browser) {
+  const page = await browser.newPage({viewport:{width:390,height:540}});
+  await page.setContent(`
+    <style>
+      *{box-sizing:border-box} body{margin:0;background:#1f2430;color:#edf2fa;font:13px Arial,sans-serif}
+      section{height:500px;width:370px;display:flex;flex-direction:column}.column{flex:1;min-height:0}
+      .frame,.sidebar-scroll{height:100%}.sidebar-scroll{overflow:auto}ul{position:relative;margin:0;padding:0}
+      [data-index]{position:absolute;left:0;top:0;width:100%}[itemid]{display:flex;align-items:center;gap:10px;height:72px;padding:8px;border-bottom:1px solid #49505b;background:#293243}
+      [itemid] button{font:inherit;background:none;border:none;color:inherit}small{color:#95a5bd}
+    </style>
+    <section><p>Meus atendimentos</p><div class="column"><div class="frame"><div class="sidebar-scroll"><ul style="height:1728px"></ul></div></div></div></section>
+  `);
+  await page.addScriptTag({path:path.join(root,'content','groups.js')});
+  await page.evaluate(() => {
+    const ul = document.querySelector('ul');
+    const scroller = document.querySelector('.sidebar-scroll');
+    window.groups = new OpaNotifyGroups();
+    window.grouping = false;
+    window.renderNative = () => {
+      const start = Math.floor(scroller.scrollTop / 72);
+      const end = Math.min(24, Math.ceil((scroller.scrollTop + scroller.clientHeight) / 72));
+      for (const row of ul.querySelectorAll('[data-index]')) {
+        if (+row.dataset.index < start || +row.dataset.index >= end) row.remove();
+      }
+      for (let i = start; i < end; i++) {
+        if (ul.querySelector('[data-index="' + i + '"]')) continue;
+        const row = document.createElement('div');
+        row.dataset.index = i;
+        row.style.transform = 'translateY(' + i * 72 + 'px)';
+        const card = document.createElement('li');
+        card.setAttribute('itemid','service-'+i);
+        card.innerHTML = '<b>TS</b><div><strong>Telecom '+(i+1)+'</strong><br><small>Você: mensagem de teste</small></div><button>Menu</button>';
+        card.onclick = () => window.opened = i;
+        card.querySelector('button').onclick = event => { event.stopPropagation(); window.menu = i; };
+        row.append(card);
+        ul.append(row);
+      }
+      if (grouping) {
+        const rows = [...ul.querySelectorAll('[data-index]')].map(node => {
+          const i = Number(node.dataset.index);
+          const tags = i % 3 ? ['Assumido'] : ['Ajudando', 'Assumido', 'Outras'];
+          return {id:'service-'+i,node,tags};
+        });
+        groups.update(document.querySelector('section'),rows,{priorityTags:['Ajudando','Assumido'],groupTags:[],tagMode:'exclude'},true);
+      }
+    };
+    renderNative();
+    new ResizeObserver(renderNative).observe(scroller);
+    scroller.addEventListener('scroll',renderNative);
+    window.originalCard = ul.querySelector('[itemid]');
+  });
+  assert(await page.locator('[itemid]').count() < 24);
+  await page.evaluate(()=>{grouping=true;renderNative();});
+  const parent = page.getByRole('button',{name:'Ajudando (8)',exact:true});
+  await parent.waitFor();
+  assert.equal(await page.locator('[itemid]').count(),24);
+  assert.equal(await page.evaluate(()=>originalCard === document.querySelector('[itemid="service-0"]')),true);
+  const nested = page.getByRole('button',{name:'Assumido (8)',exact:true});
+  const other = page.getByRole('button',{name:'Assumido (16)',exact:true});
+  const geometry = locator => locator.boundingBox();
+  assert((await geometry(parent)).y < (await geometry(nested)).y);
+  assert((await geometry(nested)).y < (await geometry(page.locator('[itemid="service-0"]'))).y);
+  assert((await geometry(page.locator('[itemid="service-21"]'))).y < (await geometry(other)).y);
+  await parent.click();
+  assert.equal(await page.locator('[itemid="service-0"]').isVisible(),false);
+  assert.equal(await page.locator('[itemid="service-0"]').evaluate(el=>el.offsetHeight),72);
+  await other.click();
+  await page.waitForFunction(()=>document.querySelector('.column').scrollHeight <= document.querySelector('.column').clientHeight + 1);
+  await page.evaluate(()=>groups.reveal('service-21'));
+  await page.locator('[itemid="service-21"] button').click();
+  assert.equal(await page.evaluate(()=>window.menu),21);
+  await page.locator('[itemid="service-21"] strong').click();
+  assert.equal(await page.evaluate(()=>window.opened),21);
+  await page.getByRole('button',{name:'Voltar à lista do Opa'}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('[itemid]').length<24);
+  assert.equal(await page.locator('.opa-groups-head').count(),0);
+  assert.equal(await page.locator('ul').evaluate(el=>el.style.height),'1728px');
+  await page.evaluate(()=>{grouping=false;groups.clear();});
+  assert.equal(await page.locator('[class*="opa-groups-"]').count(),0);
   await page.close();
 }
 
@@ -158,6 +240,7 @@ async function popup(browser) {
 (async () => {
   const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/lib/chromium/chromium',headless:true});
   try {
+    await virtualCards(browser);
     await popup(browser);
     await run(browser,false);
     await run(browser,true);

@@ -1,4 +1,4 @@
-# Opa!Notify v1.6.0
+# Opa!Notify v1.6.1
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -35,7 +35,7 @@ Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada
 
 - **Notificações:** ativação, aviso visual, duração de 5 a 30 segundos, posição em um dos quatro cantos (padrão: superior esquerdo), avisos em outras abas, notificações do sistema e aviso de atendimento finalizado. Os canais podem ser ativados ou desativados separadamente.
 - **Avisar novas mensagens do cliente** começa desligado. Escolha todos os atendimentos ou somente etiquetas prioritárias. Na interface nova, a extensão lê o identificador e a direção da mensagem quando o Opa os disponibiliza. Se várias mensagens chegam entre duas leituras e o Opa expõe apenas a última, pode haver um único aviso. Na antiga, a extensão acompanha o indicador de não lida e o contador quando disponível.
-- **Agrupar por etiqueta** começa desligado e funciona independentemente dos avisos de mensagem. Selecione as etiquetas incluídas ou ignoradas e a ordem de prioridade. Na interface nova, **Voltar à lista do Opa** alterna para a lista normal.
+- **Agrupar por etiqueta** começa desligado e funciona independentemente dos avisos de mensagem. Os cartões originais ficam sob cabeçalhos com contagem, em até dois níveis. Selecione as etiquetas incluídas ou ignoradas e a ordem de prioridade. Na interface nova, **Voltar à lista do Opa** alterna para a lista normal.
 - **Visual:** destaque roxo, tipo de preenchimento e controles de destaque, pisca e pop-up do motivo.
 - **Som:** escolha do áudio, arquivo personalizado, volume e teste.
 - **Teste e manutenção:** simulações, teste e remoção de destaque e **Refazer leitura inicial**, que recria a base sem apagar o histórico.
