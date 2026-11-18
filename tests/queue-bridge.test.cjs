@@ -23,7 +23,7 @@ test('Bridge observes list packets and only forwards minimal attendance metadata
  const s=setup();
  const raw={_id:'attendance-1',protocolo:'OPA20261145',id_cliente:null,id_user:{nome:'Contato teste',whatsapp:'private'},motivos:[],token:'secret',lastMessage:{mensagem:'private'}};
  s.socket.receive('42'+JSON.stringify([EVENT,{items:[raw],page:1,hasMore:false}]));
- assert.deepEqual(s.messages.filter(m=>m.kind==='page'),[{source:'opa-notify-queue-v1',kind:'page',page:1,hasMore:false,view:'Meus atendimentos',items:[{id:'attendance-1',protocol:'OPA20261145',company:'Contato teste',reasons:0,tags:[],pinned:false,unread:false,cursor:null}]}]);
+ assert.deepEqual(s.messages.filter(m=>m.kind==='page'),[{source:'opa-notify-queue-v1',kind:'page',page:1,hasMore:false,view:'Meus atendimentos',items:[{id:'attendance-1',protocol:'OPA20261145',company:'Contato teste',reasons:0,tags:[],pinned:false,unread:false,cursor:null,activity:null}]}]);
  assert(s.socket instanceof vm.runInContext('WebSocket',s.context));
  assert.equal(vm.runInContext('WebSocket.OPEN',s.context),1);
 });
@@ -126,4 +126,26 @@ test('Media previews replace file names in queue snapshots and direct message up
     assert.equal(update.cursor.text, expected);
     if (index < 5) assert(!JSON.stringify(s.messages.slice(-3)).includes(media.mensagem));
   }
+});
+
+test('Bridge forwards only a dated real message and its response direction for inactivity', () => {
+  const s = setup();
+  const at = new Date(880000).toISOString();
+  const base = { _id:'message-1', data:at, mensagem:'private conversation', token:'private token' };
+  const cases = [
+    [{...base,tipoDestinatario:'usuarios'}, {at:880000,waitingForCustomer:false}],
+    [{...base,tipoDestinatario:'clientes_users',id_atend:{_id:'agent-private'}}, {at:880000,waitingForCustomer:true}],
+    [{...base,tipoDestinatario:'usuarios',systemMessage:true}, null],
+    [{...base,tipoDestinatario:'usuarios',data:'invalid'}, null]
+  ];
+  for (const [message, expected] of cases) {
+    s.socket.receive('42'+JSON.stringify([EVENT,{page:1,hasMore:false,items:[{_id:'chat',lastMessage:message}]}]));
+    const activity = s.messages.filter(m=>m.kind==='page').at(-1).items[0].activity;
+    assert.deepEqual(activity,expected);
+    assert(!JSON.stringify(activity).includes('private'));
+  }
+  s.socket.receive('42'+JSON.stringify([EVENT,{page:1,hasMore:false,items:[{_id:'chat',update:at,lastMessage:{_id:'no-date',tipoDestinatario:'usuarios'}}]}]));
+  assert.deepEqual(s.messages.filter(m=>m.kind==='page').at(-1).items[0].activity,{at:880000,waitingForCustomer:false});
+  s.socket.receive('42'+JSON.stringify(['message-update',{...base,tipoDestinatario:'usuarios',id_rota:'chat'}]));
+  assert.deepEqual(s.messages.filter(m=>m.kind==='message').at(-1).activity,{at:880000,waitingForCustomer:false});
 });

@@ -22,6 +22,45 @@ async function queue(page, items) {
   await page.waitForTimeout(80);
 }
 
+async function inactivityBadge(browser) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route(origin + '/**', route => route.fulfill({contentType:'text/html',body:modern}));
+  await page.addInitScript(() => {
+    window.chrome = {
+      storage:{local:{get:async()=>({enabled:true,groupByTag:false,notifyClientMessages:false})},onChanged:{addListener(){}}},
+      runtime:{onMessage:{addListener(){}},sendMessage:async()=>({success:true})}
+    };
+    window.WebSocket = class {
+      constructor(){this.handlers={};}
+      send(){}
+      addEventListener(name,handler){this.handlers[name]=handler;}
+      receive(data){this.handlers.message({data});}
+    };
+  });
+  await page.goto(origin);
+  for (const file of ['queue-bridge','tag-settings','groups','content']) await page.addScriptTag({path:path.join(root,'content',file+'.js')});
+  await page.evaluate(() => {window.socket = new WebSocket();});
+  const timestamp = minutes => new Date(Date.now()-minutes*60000).toISOString();
+  await queue(page,[{...rows[0],lastMessage:{_id:'sent',tipoDestinatario:'clientes_users',data:timestamp(90)}},rows[1]]);
+  const badge = page.locator('[itemid="chat-1"] .opa-notify-inactivity-tag');
+  await badge.waitFor();
+  assert.equal(await badge.innerText(),'Aguardando cliente há 1h 30min');
+  assert.equal(await badge.getAttribute('data-state'),'customer');
+  assert.equal(await badge.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(180, 83, 9)');
+  await page.evaluate(data => socket.receive('42'+JSON.stringify(['message-update',data])),
+    {_id:'received',id_rota:'chat-1',tipoDestinatario:'usuarios',data:timestamp(58)});
+  await page.waitForFunction(() => document.querySelector('[itemid="chat-1"] .opa-notify-inactivity-tag')?.dataset.state === 'agent');
+  assert.equal(await badge.innerText(),'Sem resposta há 58min');
+  assert.equal(await badge.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(185, 28, 28)');
+  await queue(page,[{...rows[0],lastMessage:{_id:'system',tipoDestinatario:'clientes_users',data:timestamp(2),systemMessage:true}},rows[1]]);
+  assert.equal(await badge.count(),0);
+  assert.equal(await page.locator('[itemid="chat-2"] .opa-notify-inactivity-tag').count(),0);
+  assert.deepEqual(errors,[]);
+  await page.close();
+}
+
 async function run(browser, modernUI) {
   const page = await browser.newPage();
   const errors = [];
@@ -51,6 +90,10 @@ async function run(browser, modernUI) {
   await page.evaluate(() => call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
   const head = page.getByRole('button', {name: /VIP \(1\)/});
   await head.waitFor();
+  if (modernUI) {
+    await queue(page,[{...rows[0],lastMessage:{_id:'old1',tipoDestinatario:'clientes_users',data:new Date(Date.now()-20*60000).toISOString()}},rows[1]]);
+    assert.equal(await page.locator('[itemid="chat-1"] .opa-notify-inactivity-tag').getAttribute('data-state'),'customer');
+  }
   assert((await page.locator('.opa-groups-head').allTextContents()).some(x => x.includes('Sem grupo')));
   assert.equal(await page.getByRole('button', { name:'A (1)', exact:true }).locator('.opa-groups-count').innerText(),'1');
   await head.click();
@@ -306,6 +349,7 @@ async function popup(browser) {
 (async () => {
   const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/lib/chromium/chromium',headless:true});
   try {
+    await inactivityBadge(browser);
     await virtualCards(browser);
     await statusOrder(browser);
     await popup(browser);

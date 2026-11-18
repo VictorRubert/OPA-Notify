@@ -86,6 +86,17 @@
       incoming
     };
   }
+  function messageActivity(message, waitingForCustomer = false, fallbackDate = null) {
+    if (!message || message.systemMessage || message.systemNoteMessage) return null;
+    const at = [message.data, message.createdAt, fallbackDate]
+      .map(date => typeof date === 'string' ? Date.parse(date) : NaN)
+      .find(date => Number.isFinite(date) && date > 0 && date <= Date.now() + 60000);
+    if (at === undefined) return null;
+    const outgoing = message.tipoDestinatario === 'clientes_users';
+    const incoming = message.tipoDestinatario === 'usuarios' && !message.id_atend;
+    if (!outgoing && !incoming) return null;
+    return { at, waitingForCustomer: waitingForCustomer === true || outgoing };
+  }
 
   function observe(socket) {
     let observesQueue = false;
@@ -161,7 +172,7 @@
       const cursor = messageCursor(message);
       const routeId = route?.lastMessage ? route._id : route?.id_rota;
       if (cursor && typeof routeId === 'string' && personalView()) {
-        window.postMessage({ source: 'opa-notify-queue-v1', kind: 'message', id: routeId, cursor, unread: message.statusEnvio?.status ? message.statusEnvio.status !== 'read' : null }, location.origin);
+        window.postMessage({ source: 'opa-notify-queue-v1', kind: 'message', id: routeId, cursor, activity: messageActivity(message, route?.aguardandoCliente, route?.update), unread: message.statusEnvio?.status ? message.statusEnvio.status !== 'read' : null }, location.origin);
       }
       if (route && typeof route._id === 'string' && Array.isArray(route.motivos)) {
         // A detail update changes only the reason state, never queue membership.
@@ -184,6 +195,7 @@
           pinned: Boolean(item?.atend_fixado_topo || item?.data_fixacao),
           unread: Boolean(item?.lastMessage?.tipoDestinatario === 'usuarios' && item.lastMessage.statusEnvio?.status && item.lastMessage.statusEnvio.status !== 'read'),
           cursor: messageCursor(item?.lastMessage),
+          activity: messageActivity(item?.lastMessage, item?.aguardandoCliente, item?.update),
           reasons: Array.isArray(item?.motivos) ? item.motivos.length : null
         };
       });

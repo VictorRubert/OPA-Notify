@@ -15,6 +15,8 @@
   const LEGACY_HIGHLIGHT_LABEL_CLASS = 'opa-notify-current-label';
   const NEW_TAG_CLASS = 'opa-notify-current-new-tag';
   const GENERATED_TAGS_CLASS = 'opa-notify-generated-tags';
+  const INACTIVITY_ROW_CLASS = 'opa-notify-inactivity-row';
+  const INACTIVITY_TAG_CLASS = 'opa-notify-inactivity-tag';
   const MOTIVO_EMPTY_CLASS = 'opa-notify-motivo-empty';
   const MOTIVO_EMPTY_CONTAINER_CLASS = 'opa-notify-motivo-empty-container';
   const MOTIVO_BLINK_CLASS = 'opa-notify-motivo-blink';
@@ -100,6 +102,7 @@
       if (item && data.cursor && personalListAvailable() && viewInitialized) {
         observeMessage(item, data.cursor);
         item.cursor = data.cursor;
+        item.activity = data.activity || null;
         if (data.cursor.incoming && data.unread !== null) item.unread = data.unread === true;
         updateQueueFeatures();
       }
@@ -496,6 +499,7 @@
     const modern = isNewInterface();
     const root = modern ? personalListAvailable() && document.querySelector(NEW_LIST) : legacyQueueRoot();
     if (!root || !settings.enabled) {
+      clearInactivityLabels();
       groups?.clear();
       cursors.clear();
       visibleCandidates.clear();
@@ -505,6 +509,7 @@
     }
     const grouping = settings.groupByTag;
     if (!grouping) groups?.clear();
+    if (!modern) clearInactivityLabels();
     const rows = [];
     if (modern) {
       const cards = [...root.querySelectorAll('[itemid]')];
@@ -518,6 +523,7 @@
         const id = cardId(card);
         if (!id) continue;
         const item = newMetadata.get(id);
+        updateInactivityLabel(card, item?.activity);
         if (grouping) {
           const list = card.closest('ul');
           if (list && root.contains(list)) {
@@ -568,6 +574,49 @@
       groups ||= new globalThis.OpaNotifyGroups();
       groups.update(root, rows, settings, modern);
     }
+  }
+
+  function clearInactivityLabels() {
+    for (const row of document.querySelectorAll(`.${INACTIVITY_ROW_CLASS}`)) row.remove();
+    for (const tags of document.querySelectorAll(`.${GENERATED_TAGS_CLASS}`)) {
+      if (!tags.children.length) tags.remove();
+    }
+  }
+
+  function inactivityDuration(at) {
+    const minutes = Math.floor((Date.now() - at) / 60000);
+    if (minutes < 1) return 'menos de 1min';
+    if (minutes < 60) return `${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h${minutes % 60 ? ` ${minutes % 60}min` : ''}`;
+    const days = Math.floor(hours / 24);
+    return `${days}d${hours % 24 ? ` ${hours % 24}h` : ''}`;
+  }
+
+  function updateInactivityLabel(card, activity) {
+    let row = card.querySelector(`.${INACTIVITY_ROW_CLASS}`);
+    const at = activity?.at;
+    if (!Number.isFinite(at) || at <= 0 || at > Date.now() + 60000) {
+      const parent = row?.parentElement;
+      row?.remove();
+      if (parent?.classList.contains(GENERATED_TAGS_CLASS) && !parent.children.length) parent.remove();
+      return;
+    }
+    const tags = getOrCreateTagsContainer(card);
+    if (!tags) return;
+    if (!row) {
+      row = document.createElement('div');
+      row.className = INACTIVITY_ROW_CLASS;
+      const tag = document.createElement('span');
+      tag.className = INACTIVITY_TAG_CLASS;
+      row.append(tag);
+    }
+    if (row.parentElement !== tags) tags.append(row);
+    const tag = row.firstElementChild;
+    const waiting = activity.waitingForCustomer === true;
+    const label = `${waiting ? 'Aguardando cliente' : 'Sem resposta'} há ${inactivityDuration(at)}`;
+    if (tag.textContent !== label) tag.textContent = label;
+    if (tag.dataset.state !== (waiting ? 'customer' : 'agent')) tag.dataset.state = waiting ? 'customer' : 'agent';
   }
 
   function observePage() {
@@ -795,7 +844,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.6.2' });
+      sendResponse({ success: true, ready: true, version: '1.6.3' });
       return false;
     }
 
@@ -819,7 +868,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.6.2', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.6.3', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 
@@ -989,6 +1038,31 @@
       .${GENERATED_TAGS_CLASS} {
         margin-top: 4px !important;
         justify-content: flex-end !important;
+      }
+
+      .${INACTIVITY_ROW_CLASS} {
+        display: flex !important;
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        margin-top: 3px !important;
+        pointer-events: none !important;
+      }
+
+      .${INACTIVITY_TAG_CLASS} {
+        display: inline-block !important;
+        max-width: 100% !important;
+        padding: 2px 5px !important;
+        border-radius: 3px !important;
+        color: #fff !important;
+        background: #b45309 !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+      }
+
+      .${INACTIVITY_TAG_CLASS}[data-state="agent"] {
+        background: #b91c1c !important;
       }
 
       .${MOTIVO_EMPTY_CONTAINER_CLASS} .select2-selection,
