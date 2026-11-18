@@ -18,12 +18,10 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { background: var(--canvas); }
+html { width: 400px; height: 600px; background: var(--canvas); }
 body {
   width: 400px;
-  max-width: 100vw;
   height: 600px;
-  max-height: 100vh;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -311,12 +309,6 @@ footer {
   text-align: center;
 }
 
-@media (max-width: 360px) {
-  .header { padding-inline: 14px; }
-  main { padding-inline: 14px; }
-  .section-nav { padding-inline: 10px; }
-  .status-meta { flex-direction: column; gap: 2px; }
-}
 @media (prefers-reduced-motion: reduce) {
   .switch, .switch::after { transition: none; }
 }

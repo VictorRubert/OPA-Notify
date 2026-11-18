@@ -373,8 +373,8 @@ async function popup(browser) {
   assert.equal(await page.locator('#groupOptions').isVisible(),false);
   await page.reload();
   assert.equal(await page.locator('#notifyClientMessages').isChecked(),false);
-  await page.setViewportSize({width:340,height:600});
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth),true);
+  await page.setViewportSize({width:160,height:200});
+  assert.deepEqual(await page.evaluate(()=>({width:document.body.offsetWidth,height:document.body.offsetHeight})),{width:400,height:600});
   await page.close();
 }
 
