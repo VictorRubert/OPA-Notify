@@ -846,7 +846,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.6.4' });
+      sendResponse({ success: true, ready: true, version: '1.6.5' });
       return false;
     }
 
@@ -870,7 +870,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.6.4', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.6.5', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 
@@ -1425,65 +1425,64 @@
       }
       .toast {
         --event-color: #ef7d00;
-        --event-color-light: #ff9a2f;
-        --event-color-bg: rgba(239, 125, 0, 0.16);
+        --event-color-light: #ffb35c;
+        --event-color-bg: rgba(239, 125, 0, 0.13);
         position: relative;
         display: grid;
-        grid-template-columns: 46px 1fr 24px;
-        gap: 12px;
+        grid-template-columns: 42px minmax(0, 1fr) 24px;
+        gap: 11px;
         align-items: center;
-        padding: 14px;
+        padding: 13px;
         color: #f7f8fb;
-        background: rgba(25, 29, 42, 0.97);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-left: 5px solid var(--event-color);
-        border-radius: 12px;
-        box-shadow: 0 16px 45px rgba(0, 0, 0, 0.38);
+        background: #1e2633;
+        border: 1px solid var(--event-color);
+        border-radius: 11px;
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42);
         pointer-events: auto;
         cursor: pointer;
         overflow: hidden;
-        animation: enter .24s ease-out both;
+        animation: enter .22s cubic-bezier(.19, 1, .22, 1) both;
       }
       .toast.finished {
         --event-color: #3ecf8e;
-        --event-color-light: #67e7aa;
-        --event-color-bg: rgba(62, 207, 142, 0.16);
+        --event-color-light: #91ebbd;
+        --event-color-bg: rgba(62, 207, 142, 0.13);
         cursor: copy;
       }
       .toast.message {
         --event-color: #459bf5;
-        --event-color-light: #93c9ff;
-        --event-color-bg: rgba(69, 155, 245, .16);
-        background: #172338;
+        --event-color-light: #a9d3ff;
+        --event-color-bg: rgba(69, 155, 245, .14);
+        background: #1b2a3b;
       }
       .message .heading { overflow-wrap: anywhere; }
-      .message-text { margin: 4px 0 0; color: #b4c0d3; font-size: 11px; font-weight: 550; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
-      .message:focus-visible { outline: 2px solid var(--event-color-light); outline-offset: 2px; }
+      .message-text { margin: 4px 0 0; color: #d0dcec; font-size: 12px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+      .toast:focus-visible { outline: 2px solid var(--event-color-light); outline-offset: 2px; }
       .toast.copied {
         --event-color: #5da9ff;
         --event-color-light: #82beff;
         --event-color-bg: rgba(93, 169, 255, 0.16);
       }
-      .toast.leaving { animation: leave .2s ease-in both; }
+      .toast.leaving { animation: leave .18s ease-in both; }
       .icon {
-        width: 44px;
-        height: 44px;
+        width: 42px;
+        height: 42px;
         display: grid;
         place-items: center;
-        border-radius: 11px;
+        border-radius: 10px;
         background: var(--event-color-bg);
         color: var(--event-color-light);
       }
       .icon svg {
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         fill: currentColor;
       }
       .heading {
         margin: 0 0 4px;
         color: var(--event-color-light);
-        font-size: 13px;
-        font-weight: 750;
+        font-size: 12px;
+        font-weight: 700;
         line-height: 1.25;
       }
       .company {
@@ -1496,15 +1495,15 @@
       }
       .protocol {
         margin-top: 4px;
-        color: #9ba5b7;
+        color: #bfcbdc;
         font-size: 11px;
         font-weight: 550;
         letter-spacing: .02em;
       }
       .hint {
         margin-top: 5px;
-        color: #748095;
-        font-size: 9px;
+        color: #b0bfd2;
+        font-size: 10px;
       }
       .close {
         align-self: start;
@@ -1513,7 +1512,7 @@
         display: grid;
         place-items: center;
         padding: 0;
-        color: #9ba5b7;
+        color: #bfcbdc;
         background: transparent;
         border: 0;
         border-radius: 6px;
@@ -1526,7 +1525,7 @@
         left: 0;
         bottom: 0;
         width: 100%;
-        height: 3px;
+        height: 2px;
         background: var(--event-color);
         transform-origin: left;
       }
@@ -1541,12 +1540,12 @@
         vertical-align: 1px;
       }
       @keyframes enter {
-        from { opacity: 0; transform: translateX(-18px) scale(.98); }
-        to { opacity: 1; transform: translateX(0) scale(1); }
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
       }
       @keyframes leave {
-        from { opacity: 1; transform: translateX(0); }
-        to { opacity: 0; transform: translateX(-16px); }
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-8px); }
       }
       @media (prefers-reduced-motion: reduce) {
         .toast, .toast.leaving { animation: none; }

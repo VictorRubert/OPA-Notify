@@ -156,7 +156,7 @@ async function run(browser, modernUI) {
   assert.equal(await messageCard.locator('.company').count(),0);
   assert.equal(await messageCard.locator('.protocol').count(),0);
   assert.equal(await messageCard.locator('.message-text').innerText(),'Olá, preciso de ajuda');
-  assert.equal(await messageCard.locator('.message-text').evaluate(el=>getComputedStyle(el).fontSize),'11px');
+  assert.equal(await messageCard.locator('.message-text').evaluate(el=>getComputedStyle(el).fontSize),'12px');
   assert.equal(await messageCard.evaluate(el=>getComputedStyle(el).borderLeftColor),'rgb(69, 155, 245)');
   await messageCard.click();
   assert.equal(await page.evaluate(()=>window.opened),'chat-1');
@@ -331,6 +331,16 @@ async function popup(browser) {
   }
   assert.equal(await page.getByRole('heading',{name:'Manutenção'}).count(),1);
   assert.equal(await page.locator('#clearHighlight').count(),1);
+  assert.equal(await page.locator('.section-nav a').count(),5);
+  const sectionVisible = selector => page.locator(selector).evaluate(el => {
+    const bounds = el.getBoundingClientRect();
+    const viewport = document.querySelector('main').getBoundingClientRect();
+    return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+  });
+  await page.locator('.section-nav a[href="#sound"]').click();
+  assert(await sectionVisible('#sound'));
+  await page.locator('.section-nav a[href="#labels"]').click();
+  assert(await sectionVisible('#labels'));
   const preset = ['AJUDA','FINALIZADO','AJUDANDO','PAUSA','ASSUMIDO'].map(status => status+' AGENTE SMITH');
   const selected = ['ASSUMIDO','AJUDA','PAUSA','FINALIZADO','AJUDANDO'].map(status => status+' AGENTE SMITH');
   assert.equal(await page.locator('#groupByTag').isChecked(),false);
@@ -363,6 +373,8 @@ async function popup(browser) {
   assert.equal(await page.locator('#groupOptions').isVisible(),false);
   await page.reload();
   assert.equal(await page.locator('#notifyClientMessages').isChecked(),false);
+  await page.setViewportSize({width:340,height:600});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth),true);
   await page.close();
 }
 

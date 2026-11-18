@@ -6,16 +6,16 @@
     .opa-groups-item { order:var(--opa-group-order)!important }
     .opa-groups-hidden { display:none!important }
     .opa-groups-head { box-sizing:border-box;width:100%;text-align:start;font-family:inherit;cursor:pointer;border:0;border-radius:0;flex:none }
-    .opa-groups-head { display:flex;align-items:center;gap:7px;min-height:35px;padding:6px 10px;border-block-end:1px solid #4a4140;background:#302c2d;color:#ffae38;font-size:11px;font-weight:700;line-height:1.25;letter-spacing:.035em;text-transform:uppercase }
-    .opa-groups-head[data-subgroup] { padding-inline-start:21px;background:#252933;color:#a4b4c9;border-color:#3a414d }
+    .opa-groups-head { display:flex;align-items:center;gap:8px;min-height:36px;padding:7px 11px;border-block-end:1px solid #424c5b;background:#29313e;color:#ffb35c;font-size:11px;font-weight:700;line-height:1.3;text-transform:uppercase }
+    .opa-groups-head[data-subgroup] { padding-inline-start:21px;background:#222b38;color:#c2d2e5;border-color:#3b4757 }
     .opa-groups-head:hover { filter:brightness(1.12) }
     .opa-groups-head:focus-visible { outline:2px solid currentColor;outline-offset:-2px }
     .opa-groups-arrow { width:6px;height:6px;flex:none;box-sizing:border-box;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(-45deg) }
     [aria-expanded=true] > .opa-groups-arrow { transform:translateY(-1px) rotate(45deg) }
     .opa-groups-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
-    .opa-groups-count { flex:none;min-width:17px;text-align:center;padding:1px 5px;border-radius:4px;background:#5b432b;font-size:10px;font-variant-numeric:tabular-nums }
-    [data-subgroup] > .opa-groups-count { background:#343e4b }
-    .opa-groups-dot { color:#ffba4e;font-size:10px }
+    .opa-groups-count { flex:none;min-width:19px;text-align:center;padding:2px 6px;border-radius:5px;background:#5d422b;font-size:10px;font-variant-numeric:tabular-nums }
+    [data-subgroup] > .opa-groups-count { background:#344254 }
+    .opa-groups-dot { color:#ffd08b;font-size:10px }
     .opa-groups-viewport { overflow-y:auto!important;overflow-anchor:none;min-height:0 }
     .opa-groups-clip { height:var(--opa-layout-height,auto)!important;overflow:clip!important;flex:none!important }
     .opa-groups-expanded { flex:none!important;height:var(--opa-native-height)!important;max-height:none!important;overflow:visible!important }

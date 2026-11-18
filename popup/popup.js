@@ -416,7 +416,7 @@ function renderHistory(history) {
     const empty = document.createElement('p');
     empty.className = 'history-empty';
     empty.id = 'historyEmpty';
-    empty.textContent = 'Nenhum atendimento recebido após a instalação desta versão.';
+    empty.textContent = 'Os próximos atendimentos recebidos aparecerão aqui.';
     elements.attendanceHistory.appendChild(empty);
     elements.historyEmpty = empty;
     return;

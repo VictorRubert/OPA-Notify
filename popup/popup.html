@@ -18,6 +18,14 @@
     <span class="status-dot" id="statusDot" title="Status"></span>
   </header>
 
+  <nav class="section-nav" aria-label="Seções da extensão">
+    <a href="#notifications">Notificações</a>
+    <a href="#labels">Etiquetas</a>
+    <a href="#visual">Visual</a>
+    <a href="#sound">Som</a>
+    <a href="#maintenance">Manutenção</a>
+  </nav>
+
   <main>
     <section class="status-card">
       <div>
@@ -36,11 +44,11 @@
         <span class="history-count" id="historyCount">0/5</span>
       </div>
       <div class="history-list" id="attendanceHistory">
-        <p class="history-empty" id="historyEmpty">Nenhum atendimento recebido após a instalação desta versão.</p>
+        <p class="history-empty" id="historyEmpty">Os próximos atendimentos recebidos aparecerão aqui.</p>
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="notifications">
       <h2>Notificações</h2>
 
       <label class="toggle-row">
@@ -113,7 +121,7 @@
       </label>
     </section>
 
-    <section class="card">
+    <section class="card" id="labels">
       <h2>Etiquetas</h2>
       <label class="toggle-row">
         <span><strong>Agrupar por etiqueta</strong><small>Organiza “Meus atendimentos” em grupos recolhíveis.</small></span>
@@ -144,7 +152,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="visual">
       <h2>Visual</h2>
 
       <label class="toggle-row">
@@ -196,7 +204,7 @@
       </label>
     </section>
 
-    <section class="card">
+    <section class="card" id="sound">
       <h2>Som</h2>
 
       <label class="toggle-row">
@@ -234,7 +242,7 @@
 
     </section>
 
-    <section class="card">
+    <section class="card" id="maintenance">
       <h2>Manutenção</h2>
       <button class="button clear-highlight" id="clearHighlight" type="button" disabled>Remover marcação atual</button>
       <button class="button secondary" id="resetBaseline" type="button">Refazer leitura inicial</button>
@@ -245,7 +253,7 @@
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Opa!Notify 1.6.4</footer>
+  <footer>Opa!Notify 1.6.5</footer>
   <script src="../content/tag-settings.js"></script>
   <script src="popup.js"></script>
 </body>
