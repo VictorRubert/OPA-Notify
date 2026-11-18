@@ -31,6 +31,7 @@ const item=(id,protocol,reasons=[])=>({_id:id,protocolo:protocol,id_cliente:null
     // First list arrives before isolated content script: exercises replay.
     await page.evaluate(({EVENT,items})=>{new WebSocket('wss://suporte.ixcsoft.com.br/socket.io/');socket.receive('42'+JSON.stringify([EVENT,{items,page:1,hasMore:false}]));},{EVENT,items:[item('attendance-1','OPA20261145'),item('attendance-2','OPA20261146')]});
    }
+   await page.addScriptTag({path:path.join(root,'content/tag-settings.js')});
    await page.addScriptTag({content:fs.readFileSync(path.join(root,'content/content.js'),'utf8')});
    await page.waitForTimeout(50);
    await page.evaluate(()=>scan());await page.evaluate(()=>{clock+=11000;});await page.evaluate(()=>scan());

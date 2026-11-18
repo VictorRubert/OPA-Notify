@@ -166,19 +166,22 @@
         this.groupVirtualRows();
       }
       this.root.classList.add('opa-groups-native');
-      const priorities = new Map(this.settings.priorityTags.map((name, i) => [fold(name), i]));
-      const selection = new Set(this.settings.groupTags.map(fold));
+      const { tagRank, isStatus } = OpaTagSettings;
+      const { priorityTags, groupTags, tagMode } = this.settings;
+      const statusGrouping = tagMode === 'include' && groupTags.some(isStatus);
+      const rank = key => key === ':pinned' ? -1 : key === ':none' ? Infinity : tagRank(key, priorityTags);
+
       const tree = { groups:new Map(), items:[] };
       for (const item of this.items) {
         const names = new Map();
         for (const tag of item.tags) {
           const key = fold(tag);
-          if (key && selection.has(key) === (this.settings.tagMode === 'include')) names.set(key, tag);
+          if (key && Number.isFinite(tagRank(key, groupTags)) === (tagMode === 'include')) names.set(key, tag);
         }
         // Keep the native order for equally ranked labels. Remaining labels
         // are still visible on the card without adding further heading levels.
-        const labels = [...names].sort(([a], [b]) => (priorities.get(a) ?? Infinity) - (priorities.get(b) ?? Infinity));
-        if (item.pinned) labels.unshift([':pinned', 'Fixados']);
+        const labels = [...names].sort(([a], [b]) => rank(a) - rank(b));
+        if (item.pinned && !statusGrouping) labels.unshift([':pinned', 'Fixados']);
         if (!labels.length) labels.push([':none', 'Sem grupo']);
         let branch = tree;
         const path = [];
@@ -197,14 +200,14 @@
       }
 
       let order = 0;
-      const rank = key => key === ':pinned' ? -1 : key === ':none' ? Infinity : priorities.get(key) ?? 100000;
       const draw = (branch, depth, visible) => {
+        if (statusGrouping) branch.items.sort((a,b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
         for (const item of branch.items) {
           item.node.classList.add('opa-groups-item');
           item.node.style.setProperty('--opa-group-order', ++order);
           item.node.classList.toggle('opa-groups-hidden', !visible);
         }
-        const groups = [...branch.groups.values()].sort((a,b) => rank(a.key) - rank(b.key) || a.label.localeCompare(b.label));
+        const groups = [...branch.groups.values()].sort((a,b) => Number(a.key === ':none') - Number(b.key === ':none') || rank(a.key) - rank(b.key) || a.label.localeCompare(b.label));
         for (const group of groups) {
           const expanded = !this.collapsed.has(group.path);
           if (visible) {

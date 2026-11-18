@@ -21,6 +21,7 @@ const html='<button data-tutorial="customer-service-queue-in-progress" class="bg
   notifications:{create:async(id,options)=>system.push(id.includes(':finished:')?'finished':'received'),onClicked:{addListener(){}},onClosed:{addListener(){}}}
  };
  const context=vm.createContext({chrome,URL,console,setTimeout,clearTimeout,Date:class extends Date{static now(){return clock;}}});
+ context.importScripts = file => vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context);
  vm.runInContext(fs.readFileSync(path.join(root,'background.js'),'utf8'),context);
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/lib/chromium/chromium',headless:true});
  try{
@@ -43,6 +44,7 @@ const html='<button data-tutorial="customer-service-queue-in-progress" class="bg
   const open=async()=>{
    await page.goto('https://opasuiteapi.ixcsoft.com.br/customer-service/in-progress');
    await page.evaluate(({time,event,loadEvent})=>{window.clock=time;new WebSocket('wss://opasuiteapi.ixcsoft.com.br/socket.io/');socket.send('42'+JSON.stringify([loadEvent,{preferences:{owner:'me'}}]));socket.send('42'+JSON.stringify([event,{preferences:{owner:'me'},page:1}]));},{time:clock,event,loadEvent});
+   await page.addScriptTag({path:path.join(root,'content/tag-settings.js')});
    await page.addScriptTag({content:fs.readFileSync(path.join(root,'content/content.js'),'utf8')});
    await page.waitForTimeout(30);
   };

@@ -43,7 +43,7 @@ async function run(browser, modernUI) {
     };
   });
   await page.goto(origin);
-  for (const file of ['queue-bridge','groups','content']) await page.addScriptTag({path:path.join(root,'content',file+'.js')});
+  for (const file of ['queue-bridge','tag-settings','groups','content']) await page.addScriptTag({path:path.join(root,'content',file+'.js')});
   if (modernUI) {
     await page.evaluate(() => { window.socket = new WebSocket(); });
     await queue(page, rows);
@@ -123,6 +123,7 @@ async function virtualCards(browser) {
     </style>
     <section><p>Meus atendimentos</p><div class="column"><div class="frame"><div class="sidebar-scroll"><ul style="height:1728px"></ul></div></div></div></section>
   `);
+  await page.addScriptTag({path:path.join(root,'content/tag-settings.js')});
   await page.addScriptTag({path:path.join(root,'content','groups.js')});
   await page.evaluate(() => {
     const ul = document.querySelector('ul');
@@ -193,6 +194,26 @@ async function virtualCards(browser) {
   await page.close();
 }
 
+async function statusOrder(browser) {
+  const page = await browser.newPage();
+  await page.setContent('<main></main>');
+  for (const file of ['tag-settings','groups']) await page.addScriptTag({path:path.join(root,'content',file+'.js')});
+  const order = await page.evaluate(() => {
+    const list = document.querySelector('main');
+    const rows = [['VIP'], ['ASSUMIDO AGENTE SMITH'], ['Pausado'], ['ajudando Agente Smith','ASSUMIDO AGENTE SMITH'],
+      ['FINALIZADO'], ['AJUDA AGENTE SMITH'], ['AJUDANTE']].map((tags,i) => {
+      const node = list.appendChild(document.createElement('div'));
+      node.textContent = 'Atendimento ' + i;
+      return {id:String(i),node,tags,pinned:i===1};
+    });
+    new OpaNotifyGroups().update(list, rows, OpaTagSettings.defaults, false);
+    return [...list.querySelectorAll('.opa-groups-head:not([data-subgroup])')].sort((a,b)=>a.offsetTop-b.offsetTop)
+      .map(head=>head.querySelector('.opa-groups-name').textContent);
+  });
+  assert.deepEqual(order,['AJUDA AGENTE SMITH','FINALIZADO','ajudando Agente Smith','Pausado','ASSUMIDO AGENTE SMITH','Sem grupo']);
+  await page.close();
+}
+
 async function popup(browser) {
   const page = await browser.newPage();
   await page.addInitScript(() => {
@@ -206,11 +227,16 @@ async function popup(browser) {
   });
   await page.route('https://popup.example/**', route => {
     const name = new URL(route.request().url()).pathname.slice(1);
+    if (name === 'content/tag-settings.js') return route.fulfill({path:path.join(root,name)});
     if (!['popup.html','popup.css','popup.js'].includes(name)) return route.abort();
     return route.fulfill({path:path.join(root,'popup',name)});
   });
   await page.goto('https://popup.example/popup.html');
-  assert.equal(await page.locator('#groupByTag').isChecked(),false);
+  const preset = ['AJUDA','FINALIZADO','AJUDANDO','PAUSADO','ASSUMIDO'];
+  assert.equal(await page.locator('#groupByTag').isChecked(),true);
+  assert.deepEqual(await page.locator('#priorityTags li span').allTextContents(),preset);
+  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),preset);
+  assert.equal(await page.locator('#tagMode').inputValue(),'include');
   assert.equal(await page.locator('#notifyClientMessages').isChecked(),false);
   await page.getByText('Avisar novas mensagens do cliente',{exact:true}).click();
   await page.selectOption('#messageScope','priority');
@@ -220,13 +246,12 @@ async function popup(browser) {
     await page.locator('#priorityTagForm button').click();
   }
   await page.getByRole('button',{name:'Subir VIP'}).click();
-  await page.getByText('Agrupar por etiqueta',{exact:true}).click();
   await page.selectOption('#tagMode','include');
   await page.fill('#groupTagName','VIP');
   await page.locator('#groupTagForm button').click();
   await page.reload();
-  assert.deepEqual(await page.locator('#priorityTags li span').allTextContents(),['VIP','A']);
-  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),['VIP']);
+  assert.deepEqual(await page.locator('#priorityTags li span').allTextContents(),[...preset,'VIP','A']);
+  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),[...preset,'VIP']);
   assert.equal(await page.locator('#tagMode').inputValue(),'include');
   await page.getByRole('button',{name:'Remover A',exact:true}).click();
   await page.getByText('Agrupar por etiqueta',{exact:true}).click();
@@ -241,6 +266,7 @@ async function popup(browser) {
   const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/lib/chromium/chromium',headless:true});
   try {
     await virtualCards(browser);
+    await statusOrder(browser);
     await popup(browser);
     await run(browser,false);
     await run(browser,true);

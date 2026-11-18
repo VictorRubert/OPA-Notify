@@ -1,4 +1,5 @@
-const EXTENSION_VERSION = '1.6.1';
+importScripts('content/tag-settings.js');
+const EXTENSION_VERSION = '1.6.2';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -23,12 +24,9 @@ const DEFAULT_SETTINGS = Object.freeze({
   motivoBlinkEnabled: true,
   motivoChargeEnabled: true,
   notifyOnFinished: true,
-  groupByTag: false,
+  ...OpaTagSettings.defaults,
   notifyClientMessages: false,
   messageScope: 'all',
-  tagMode: 'exclude',
-  groupTags: [],
-  priorityTags: [],
   soundEnabled: true,
   volume: 0.8,
   soundPreset: 'classic',
@@ -86,8 +84,18 @@ async function scanOpenSupportTabs() {
 }
 
 async function initializeDefaults() {
-  const stored = await chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS));
+  const stored = await chrome.storage.local.get([...Object.keys(DEFAULT_SETTINGS), 'tagDefaultsVersion']);
   const missing = {};
+  if (!stored.tagDefaultsVersion) {
+    // Previous installations wrote the empty lists on install. Seed the new
+    // rules once, preserving explicit custom filters, priorities and switches.
+    if (stored.tagMode === 'exclude' && stored.groupTags?.length === 0 && stored.priorityTags?.length === 0) {
+      missing.tagMode = DEFAULT_SETTINGS.tagMode;
+      missing.groupTags = DEFAULT_SETTINGS.groupTags;
+      missing.priorityTags = DEFAULT_SETTINGS.priorityTags;
+    }
+    missing.tagDefaultsVersion = 1;
+  }
 
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
     if (stored[key] === undefined) missing[key] = value;
@@ -206,8 +214,7 @@ async function processQueueSignal(message, sender) {
     return { success: true };
   }
   if (!settings.notifyClientMessages || !attendance.protocol) return { success: true };
-  const priorities = new Set(settings.priorityTags.map(tag => tag.trim().toLocaleLowerCase()));
-  if (settings.messageScope === 'priority' && !message.tags?.some(tag => typeof tag === 'string' && priorities.has(tag.trim().toLocaleLowerCase()))) return { success: true };
+  if (settings.messageScope === 'priority' && !message.tags?.some(tag => typeof tag === 'string' && Number.isFinite(OpaTagSettings.tagRank(tag, settings.priorityTags)))) return { success: true };
   if (typeof message.cursor !== 'string' || !message.cursor) return { success: false };
   const { recentClientMessages = {} } = await chrome.storage.session.get('recentClientMessages');
   const recent = pruneTimestampMap(recentClientMessages, Date.now());
@@ -594,7 +601,7 @@ async function ensureContentScript(tabId, { requireMonitor = true } = {}) {
   const injection = (async () => {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ['content/groups.js', 'content/content.js']
+      files: ['content/tag-settings.js', 'content/groups.js', 'content/content.js']
     });
 
     await delay(150);
