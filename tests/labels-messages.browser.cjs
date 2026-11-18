@@ -200,8 +200,8 @@ async function statusOrder(browser) {
   for (const file of ['tag-settings','groups']) await page.addScriptTag({path:path.join(root,'content',file+'.js')});
   const order = await page.evaluate(() => {
     const list = document.querySelector('main');
-    const rows = [['VIP'], ['ASSUMIDO AGENTE SMITH'], ['Pausado'], ['ajudando Agente Smith','ASSUMIDO AGENTE SMITH'],
-      ['FINALIZADO'], ['AJUDA AGENTE SMITH'], ['AJUDANTE']].map((tags,i) => {
+    const rows = [['VIP'], ['ASSUMIDO AGENTE SMITH'], ['PAUSA AGENTE SMITH'], ['ajudando Agente Smith','ASSUMIDO AGENTE SMITH'],
+      ['FINALIZADO AGENTE SMITH'], ['AJUDA AGENTE SMITH'], ['AJUDA OUTRO AGENTE']].map((tags,i) => {
       const node = list.appendChild(document.createElement('div'));
       node.textContent = 'Atendimento ' + i;
       return {id:String(i),node,tags,pinned:i===1};
@@ -210,7 +210,7 @@ async function statusOrder(browser) {
     return [...list.querySelectorAll('.opa-groups-head:not([data-subgroup])')].sort((a,b)=>a.offsetTop-b.offsetTop)
       .map(head=>head.querySelector('.opa-groups-name').textContent);
   });
-  assert.deepEqual(order,['AJUDA AGENTE SMITH','FINALIZADO','ajudando Agente Smith','Pausado','ASSUMIDO AGENTE SMITH','Sem grupo']);
+  assert.deepEqual(order,['AJUDA AGENTE SMITH','FINALIZADO AGENTE SMITH','ajudando Agente Smith','PAUSA AGENTE SMITH','ASSUMIDO AGENTE SMITH','Sem grupo']);
   await page.close();
 }
 
@@ -232,10 +232,13 @@ async function popup(browser) {
     return route.fulfill({path:path.join(root,'popup',name)});
   });
   await page.goto('https://popup.example/popup.html');
-  const preset = ['AJUDA','FINALIZADO','AJUDANDO','PAUSADO','ASSUMIDO'];
-  assert.equal(await page.locator('#groupByTag').isChecked(),true);
+  const preset = ['AJUDA','FINALIZADO','AJUDANDO','PAUSA','ASSUMIDO'].map(status => status+' AGENTE SMITH');
+  const selected = ['ASSUMIDO','AJUDA','PAUSA','FINALIZADO','AJUDANDO'].map(status => status+' AGENTE SMITH');
+  assert.equal(await page.locator('#groupByTag').isChecked(),false);
+  assert.equal(await page.locator('#groupOptions').isVisible(),false);
+  await page.getByText('Agrupar por etiqueta',{exact:true}).click();
   assert.deepEqual(await page.locator('#priorityTags li span').allTextContents(),preset);
-  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),preset);
+  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),selected);
   assert.equal(await page.locator('#tagMode').inputValue(),'include');
   assert.equal(await page.locator('#notifyClientMessages').isChecked(),false);
   await page.getByText('Avisar novas mensagens do cliente',{exact:true}).click();
@@ -251,7 +254,7 @@ async function popup(browser) {
   await page.locator('#groupTagForm button').click();
   await page.reload();
   assert.deepEqual(await page.locator('#priorityTags li span').allTextContents(),[...preset,'VIP','A']);
-  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),[...preset,'VIP']);
+  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),[...selected,'VIP']);
   assert.equal(await page.locator('#tagMode').inputValue(),'include');
   await page.getByRole('button',{name:'Remover A',exact:true}).click();
   await page.getByText('Agrupar por etiqueta',{exact:true}).click();
