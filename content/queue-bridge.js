@@ -56,6 +56,16 @@
     const parsed = decode(value);
     return parsed?.[0] === EVENT ? parsed[1] : null;
   }
+  // Only expose identifiers and classification. Message bodies never leave the page world.
+  function messageCursor(message) {
+    if (typeof message?._id !== 'string' || !message._id) return null;
+    return {
+      id: message._id.slice(0, 120),
+      incoming: message.tipoDestinatario === 'usuarios' && !message.id_atend &&
+        !message.systemMessage && !message.systemNoteMessage
+    };
+  }
+
   function observe(socket) {
     let observesQueue = false;
     let collectingPages = false;
@@ -126,6 +136,12 @@
       const parsed = decode(event.data);
       diagnose(parsed, 'received');
       const route = parsed?.[1];
+      const message = route?.lastMessage || route;
+      const cursor = messageCursor(message);
+      const routeId = route?.lastMessage ? route._id : route?.id_rota;
+      if (cursor && typeof routeId === 'string' && personalView()) {
+        window.postMessage({ source: 'opa-notify-queue-v1', kind: 'message', id: routeId, cursor, unread: message.statusEnvio?.status ? message.statusEnvio.status !== 'read' : null }, location.origin);
+      }
       if (route && typeof route._id === 'string' && Array.isArray(route.motivos)) {
         // A detail update changes only the reason state, never queue membership.
         window.postMessage({ source: 'opa-notify-queue-v1', kind: 'reasons', id: route._id, reasons: route.motivos.length }, location.origin);
@@ -143,6 +159,10 @@
         return {
           id: String(item?._id || ''), protocol: String(item?.protocolo || ''),
           company: String(client?.nome || client?.razao_social || item?.id_user?.nome || 'Empresa não identificada').slice(0, 250),
+          tags: Array.isArray(item?.tags) ? item.tags.map(tag => tag?.nome).filter(name => typeof name === 'string').map(name => name.slice(0, 120)) : [],
+          pinned: Boolean(item?.atend_fixado_topo || item?.data_fixacao),
+          unread: Boolean(item?.lastMessage?.tipoDestinatario === 'usuarios' && item.lastMessage.statusEnvio?.status && item.lastMessage.statusEnvio.status !== 'read'),
+          cursor: messageCursor(item?.lastMessage),
           reasons: Array.isArray(item?.motivos) ? item.motivos.length : null
         };
       });

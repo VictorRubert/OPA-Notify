@@ -397,3 +397,9 @@ footer {
   gap: 12px;
 }
 .duration-slider input { width: 100%; margin: 0; }
+
+.tag-entry,.tag-list li { display:flex;align-items:center;gap:6px;margin-top:6px }
+.tag-entry input,.tag-list span { min-width:0;flex:1;overflow-wrap:anywhere }
+.tag-entry input,.tag-entry button,.tag-list button { background:var(--surface-2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 7px }
+.tag-list { padding:0;margin:4px 0;list-style:none }
+.tag-list button,.tag-entry button { cursor:pointer }

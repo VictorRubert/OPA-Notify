@@ -24,7 +24,7 @@ function setup() {
       update: async (...args) => actions.push(['tab', ...args]),
       sendMessage: async (id, message) => {
         if (id === 4) throw Error('Protected page');
-        messages.push({id, ...message}); return {ready:true,success:true,version:'1.5.5'};
+        messages.push({id, ...message}); return {ready:true,success:true,version:'1.6.0'};
       }
     },
     scripting: {executeScript:async args => {injections.push(args); throw Error('Protected page');}},
@@ -122,7 +122,7 @@ test('Notification click opens the new-domain source tab',async()=>{
 
 test('Visual simulations report delivery failures instead of claiming success',async()=>{
  const s=setup();
- s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.5'}:{success:false,error:'Card render failed'};
+ s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.0'}:{success:false,error:'Card render failed'};
  s.ctx.args=[s.attendance,{tab:{id:1}},{visualEnabled:true,soundEnabled:false},'received',true];
  await assert.rejects(vm.runInContext('announceAttendance(...args)',s.ctx),/Card render failed/);
 });
@@ -141,7 +141,7 @@ test('Simulation chooses the active new-domain tab without relying on the native
 test('Missing Opa tab diagnostic includes running version and host, without URL parameters',async()=>{
  const s=setup();s.chrome.tabs.query=async filter=>filter.active?[{id:9,url:'https://other.example/path?secret=private'}]:[];
  const result=await vm.runInContext('testAlert("received")',s.ctx);
- assert.equal(result.success,false);assert.match(result.error,/1.5.5/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
+ assert.equal(result.success,false);assert.match(result.error,/1.6.0/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
 });
 function queueScenario(){
  const s=setup();let time=1000000;
@@ -195,7 +195,7 @@ test('Departure cards are delivered to other Opa tabs as well as ordinary sites'
  assert.equal(s.session['lastDelivery:finished'].system,'delivered');
 });
 test('Delivery diagnostics distinguish visual failure from successful system notification',async()=>{
- const s=setup();s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.5.5'}:{success:false,error:'Render failed'};
+ const s=setup();s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.0'}:{success:false,error:'Render failed'};
  s.ctx.console={...console,warn(){}};
  await s.announce({otherTabsEnabled:false},'finished');
  const delivery=s.session['lastDelivery:finished'];assert.equal(delivery.sourceVisual,'failed');assert.equal(delivery.system,'delivered');
@@ -219,4 +219,59 @@ test('Copied diagnostics expose counts and delivery results without queue/custom
  const diagnostic=await vm.runInContext('getDiagnostics()',s.ctx);
  assert.equal(diagnostic.pendingRemovalCount,1);assert.equal(diagnostic.deliveries.finished.system,'delivered');
  const text=JSON.stringify(diagnostic);assert(!text.includes(s.attendance.protocol));assert(!text.includes(s.attendance.company));
+});
+
+test('A full snapshot changing membership during the initial grace window announces only the arrival', async () => {
+  const s = queueScenario();
+  const item = { ...s.attendance, id: 'second' };
+  await s.scan([{ ...item, protocol: 'OPA100000', id: 'first' }], { initialRead: true, completeSnapshot: true });
+  s.advance(1000);
+  s.local.recentlyNotified = { [item.protocol]: 999000 }; // stale 1.5.x state
+  const changed = await s.scan([item], { completeSnapshot: true });
+  assert.equal(changed.newCount, 1);
+  assert.equal(changed.finishedCount, 0);
+  assert.equal((await s.scan([item], { completeSnapshot: true })).newCount, 0);
+});
+
+test('A visible arrival opens by ID before the protocol is available and reconciles once', async () => {
+  const s = queueScenario();
+  await s.scan([], { initialRead: true, completeSnapshot: true });
+  const item = { ...s.attendance, id: 'visible-id' };
+  s.ctx.signal = { type: 'VISIBLE_ARRIVAL', attendance: { ...item, protocol: '' } };
+  const signal = () => vm.runInContext('processQueueSignal(signal,{tab:{id:1}})',s.ctx);
+  await signal(); await signal();
+  await s.click(s.notifications[0].id);
+  assert.equal(s.messages.find(m => m.type === 'FOCUS_ATTENDANCE').attendance.id, item.id);
+  assert.equal((await s.scan([], { completeSnapshot: true })).finishedCount, 0);
+  await s.scan([item], { completeSnapshot: true });
+  await signal();
+  assert.equal(s.notifications.length, 1);
+  assert.equal(s.local.attendanceHistory[0].protocol, item.protocol);
+});
+
+test('Client messages respect separate opt-in, scopes and channels, duplicate IDs and click target', async () => {
+  const s = queueScenario();
+  const item = { ...s.attendance, id: 'my-chat' };
+  s.ctx.signal = { type: 'CLIENT_MESSAGE', attendance: item, tags: ['VIP'], cursor: 'first' };
+  const signal = () => vm.runInContext('processQueueSignal(signal,{tab:{id:1}})',s.ctx);
+  await signal();
+  s.local.notifyClientMessages = true;
+  s.local.groupByTag = false;
+  s.local.messageScope = 'priority';
+  await signal();
+  assert.equal(s.notifications.length, 0);
+  s.local.priorityTags = ['vip'];
+  s.local.otherTabsEnabled = true;
+  await signal(); await signal();
+  assert.equal(s.notifications.length, 1);
+  assert.equal(s.notifications[0].title, 'Nova mensagem do cliente!');
+  await s.click(s.notifications[0].id);
+  assert(s.messages.some(m => m.type === 'FOCUS_ATTENDANCE' && m.attendance.id === item.id));
+  assert(s.messages.some(m => m.eventType === 'message' && m.id === 2 && m.sourceTabId === 1));
+  s.ctx.signal.cursor = 'second';
+  await signal();
+  assert.equal(s.notifications.length, 2);
+  s.local.enabled = false;
+  s.ctx.signal.cursor = 'third'; await signal();
+  assert.equal(s.notifications.length, 2);
 });

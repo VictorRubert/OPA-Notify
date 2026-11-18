@@ -1,4 +1,4 @@
-# Opa!Notify v1.5.5
+# Opa!Notify v1.6.0
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -18,7 +18,9 @@ Após instalar ou atualizar, **recarregue a aba do Opa** para conectar o monitor
 - Destaque e lembrete para motivo não preenchido.
 - Sons integrados ou personalizados em MP3, WAV ou OGG (até 2 MB).
 
-O cartão de recebimento abre o atendimento; o cartão de saída copia o protocolo. O clique na notificação do sistema retorna ao Opa.
+Os avisos de recebimento e de mensagem abrem a conversa ao clicar. O cartão de saída permite copiar o protocolo.
+
+Na interface nova, um cartão que aparece em **Meus atendimentos** após a leitura inicial também pode gerar o aviso de entrada. Se o protocolo ainda estiver indisponível, o aviso mostra o nome e abre a conversa pelo identificador do cartão. Quando a lista completa confirma o protocolo, o histórico é atualizado sem repetir o aviso.
 
 ## Instalação e atualização
 
@@ -32,6 +34,8 @@ Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada
 ## Configurações
 
 - **Notificações:** ativação, aviso visual, duração de 5 a 30 segundos, posição em um dos quatro cantos (padrão: superior esquerdo), avisos em outras abas, notificações do sistema e aviso de atendimento finalizado. Os canais podem ser ativados ou desativados separadamente.
+- **Avisar novas mensagens do cliente** começa desligado. Escolha todos os atendimentos ou somente etiquetas prioritárias. Na interface nova, a extensão lê o identificador e a direção da mensagem quando o Opa os disponibiliza. Se várias mensagens chegam entre duas leituras e o Opa expõe apenas a última, pode haver um único aviso. Na antiga, a extensão acompanha o indicador de não lida e o contador quando disponível.
+- **Agrupar por etiqueta** começa desligado e funciona independentemente dos avisos de mensagem. Selecione as etiquetas incluídas ou ignoradas e a ordem de prioridade. Na interface nova, **Voltar à lista do Opa** alterna para a lista normal.
 - **Visual:** destaque roxo, tipo de preenchimento e controles de destaque, pisca e pop-up do motivo.
 - **Som:** escolha do áudio, arquivo personalizado, volume e teste.
 - **Teste e manutenção:** simulações, teste e remoção de destaque e **Refazer leitura inicial**, que recria a base sem apagar o histórico.
@@ -54,4 +58,4 @@ Para verificar a leitura e os destaques nas duas interfaces com exemplos fictíc
 
 Os testes usam APIs Chrome e eventos de rede simulados; a integração deve ser validada em uma instalação real da extensão.
 
-Licença: [MIT](LICENSE).
+O agrupamento e o acompanhamento de mensagens usam o Opa!Alert de JanineMilena como referência. [Licença MIT](LICENSE).

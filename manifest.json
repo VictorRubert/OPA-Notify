@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Opa!Notify",
   "short_name": "Opa!Notify",
-  "version": "1.5.5",
-  "description": "Avisa quando um atendimento é recebido ou finalizado em Meus atendimentos no Opa! Suite, mantém os 5 últimos recebimentos, destaca o atendimento novo e permite destacar motivos não preenchidos.",
+  "version": "1.6.0",
+  "description": "Alertas de atendimentos e mensagens de clientes, agrupamento por etiqueta e destaques na fila do Opa! Suite.",
   "minimum_chrome_version": "111",
   "permissions": [
     "storage",
@@ -42,6 +42,7 @@
         "https://opasuiteapi.ixcsoft.com.br/*"
       ],
       "js": [
+        "content/groups.js",
         "content/content.js"
       ],
       "run_at": "document_idle"

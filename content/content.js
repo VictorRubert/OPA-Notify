@@ -38,6 +38,16 @@
   let initialSnapshotPending = true;
   const queueDiagnostics = [];
   let newMetadata = new Map();
+  const cursors = new Map();
+  const visibleCandidates = new Map();
+  const visibleBaseline = new Set();
+  let viewInitialized = false;
+  let scanBusy = false;
+  let groups;
+  const featureDefaults = {
+    groupByTag: false, notifyClientMessages: false, messageScope: 'all',
+    tagMode: 'exclude', groupTags: [], priorityTags: []
+  };
 
   function isNewInterface() { return Boolean(document.querySelector(NEW_LIST)); }
   function isPersonalNewQueue() {
@@ -74,6 +84,16 @@
       if (queueDiagnostics.length > 40) queueDiagnostics.shift();
       return;
     }
+    if (data.kind === 'message') {
+      const item = newMetadata.get(data.id);
+      if (item && data.cursor && personalListAvailable() && viewInitialized) {
+        observeMessage(item, data.cursor);
+        item.cursor = data.cursor;
+        if (data.cursor.incoming && data.unread !== null) item.unread = data.unread === true;
+        updateQueueFeatures();
+      }
+      return;
+    }
     if (data.kind === 'reasons') {
       const metadata = newMetadata.get(data.id);
       if (metadata && Number.isInteger(data.reasons) && data.reasons >= 0) {
@@ -84,27 +104,41 @@
     }
     if (data.kind === 'reset') { queuePages.clear(); newQueue = null; return; }
     if (data.kind !== 'page' || !Array.isArray(data.items) || !Number.isInteger(data.page) || data.page < 1 || data.page > 1000 || typeof data.hasMore !== 'boolean') return;
-    if (!isPersonalNewQueue() || normalizeInterfaceText(data.view) !== 'meus atendimentos') { queuePages.clear(); newQueue = null; return; }
+    if (!personalListAvailable() || normalizeInterfaceText(data.view) !== 'meus atendimentos') { queuePages.clear(); newQueue = null; return; }
     if (data.page === 1) { queuePages.clear(); newQueue = null; }
     const valid = data.items.every(item => item && typeof item.id === 'string' && item.id && /^OPA\d{6,}$/.test(item.protocol) && typeof item.company === 'string' && item.company);
     if (!valid) { queuePages.clear(); newQueue = null; return; }
-    queuePages.set(data.page, data.items);
+    queuePages.set(data.page, data.items.map(item => ({
+      ...item, tags: Array.isArray(item.tags) ? item.tags.filter(tag => typeof tag === 'string') : []
+    })));
     if (data.hasMore) return;
     for (let page = 1; page <= data.page; page++) if (!queuePages.has(page)) return;
     const items = [...Array(data.page)].flatMap((_, index) => queuePages.get(index + 1));
     if (new Set(items.map(item => item.id)).size !== items.length || new Set(items.map(item => item.protocol)).size !== items.length) { newQueue = null; return; }
     lastCompleteQueueAt = Date.now();
+    if (!viewInitialized || initialSnapshotPending) cursors.clear();
+    for (const item of items) observeMessage(item, item.cursor);
+
     newMetadata = new Map(items.map(item => [item.id, item]));
+    for (const id of cursors.keys()) if (!newMetadata.has(id)) cursors.delete(id);
     newQueue = items.map(({ id, protocol, company }) => ({ id, protocol, company }));
+    if (!viewInitialized && personalListAvailable()) {
+      for (const card of document.querySelectorAll(NEW_CARD)) visibleBaseline.add(cardId(card));
+      viewInitialized = true;
+    }
+    updateQueueFeatures();
     applyHighlightedAttendance();
     scheduleMotivoHighlight();
     const confirmsDeparture = confirmationRefreshPending;
     confirmationRefreshPending = false;
     confirmationSnapshotReady = confirmsDeparture;
-    scheduleScan(0, confirmsDeparture);
+    // Take the first complete snapshot as soon as it arrives. A second list
+    // can already be in the event loop while the initial scan is pending.
+    scanAndSend(confirmsDeparture).catch(console.error);
   });
 
   let settings = {
+    ...featureDefaults,
     enabled: true,
     colorHighlightEnabled: true,
     highlightFillMode: 'soft',
@@ -157,6 +191,7 @@
 
   async function loadSettings() {
     const stored = await chrome.storage.local.get([
+      ...Object.keys(featureDefaults),
       'enabled',
       'colorHighlightEnabled',
       'highlightFillMode',
@@ -166,6 +201,7 @@
       'attendanceHistory',
       'highlightedAttendanceProtocol'
     ]);
+    for (const [key, fallback] of Object.entries(featureDefaults)) settings[key] = stored[key] ?? fallback;
     settings.enabled = stored.enabled !== false;
     settings.colorHighlightEnabled = stored.colorHighlightEnabled !== false;
     settings.highlightFillMode = normalizeHighlightFillMode(stored.highlightFillMode);
@@ -183,10 +219,21 @@
   function watchSettings() {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
+      if (Object.keys(featureDefaults).some(key => changes[key]) || changes.enabled) {
+        for (const [key, fallback] of Object.entries(featureDefaults)) {
+          if (changes[key]) settings[key] = changes[key].newValue ?? fallback;
+        }
+        if (changes.enabled) settings.enabled = changes.enabled.newValue !== false;
+        if (changes.notifyClientMessages || changes.enabled) {
+          cursors.clear();
+          if (viewInitialized) for (const item of newMetadata.values()) observeMessage(item, item.cursor);
+        }
+        updateQueueFeatures();
+        scheduleScan(0);
+      }
       if (changes.attendanceHistory) {
         attendanceHistoryCache = Array.isArray(changes.attendanceHistory.newValue) ? changes.attendanceHistory.newValue : [];
       }
-      if (changes.enabled) settings.enabled = changes.enabled.newValue !== false;
       if (changes.colorHighlightEnabled) {
         settings.colorHighlightEnabled = changes.colorHighlightEnabled.newValue !== false;
         applyHighlightedAttendance();
@@ -395,8 +442,123 @@
     });
   }
 
+  function personalListAvailable() {
+    return isPersonalNewQueue() && !document.querySelector(`${NEW_LIST} input:not([type=checkbox]):not([type=radio])`)?.value?.trim();
+  }
+
+  function observeMessage(item, cursor, legacy = false) {
+    if (!settings.enabled || !settings.notifyClientMessages) return;
+    const id = item.id || item.protocol;
+    const previous = cursors.get(id);
+    const token = typeof cursor?.id === 'string' ? cursor.id : '';
+    // Keep a small window as direct updates and list responses can interleave.
+    if (previous?.last === token) return;
+    const seen = previous?.seen || [];
+    if (!legacy && token && seen.includes(token)) return;
+    cursors.set(id, { last: token, seen: token ? [...seen.slice(-15), token] : seen });
+    if (!previous || !token || !cursor.incoming) return;
+    if (legacy && /^\d+$/.test(token) && /^\d+$/.test(previous.last) && Number(token) <= Number(previous.last)) return;
+    const attendance = { id, protocol: item.protocol, company: item.company };
+    chrome.runtime.sendMessage({ type: 'CLIENT_MESSAGE', attendance, tags: item.tags || [], cursor: token, legacy }).catch(console.warn);
+  }
+
+  function legacyQueueRoot() {
+    if (!isOngoingAttendancesModuleActive()) return null;
+    const selected = document.querySelector('button[data-id="meus_atendimentos"].selected_filtro_user_status');
+    const list = selected?.closest('.list');
+    if (list?.querySelector('.list_select_input')?.value.trim()) return null;
+    return list?.querySelector('.list_dados') || selected?.closest('.list_dados');
+  }
+
+  function visibleRow(card) {
+    const company = card.querySelector('p.italic')?.textContent.trim();
+    const contact = card.querySelector('p.font-medium, button p')?.textContent.trim();
+    return {
+      id: cardId(card), protocol: extractProtocol(card) || '',
+      company: company && normalizeInterfaceText(company) !== 'sem cliente vinculado' ? company : contact || 'Empresa não identificada',
+      tags: (card.getAttribute('data-tag-names') || '').split('|').filter(Boolean)
+    };
+  }
+
+  function updateQueueFeatures() {
+    const modern = isNewInterface();
+    const root = modern ? personalListAvailable() && document.querySelector(NEW_LIST) : legacyQueueRoot();
+    if (!root || !settings.enabled) {
+      groups?.clear();
+      cursors.clear();
+      visibleCandidates.clear();
+      visibleBaseline.clear();
+      viewInitialized = false;
+      return;
+    }
+    const grouping = settings.groupByTag;
+    if (!grouping) groups?.clear();
+    const rows = [];
+    if (modern) {
+      if (!viewInitialized) { groups?.clear(); return; }
+      const cards = [...root.querySelectorAll('[itemid]')];
+      const mounted = new Set(cards.map(cardId));
+      // A server-side departure can precede removal of the old card by React.
+      // Only a newly mounted, previously unknown row is positive evidence.
+      for (const id of visibleBaseline) if (!mounted.has(id)) visibleBaseline.delete(id);
+      for (const id of mounted) if (newMetadata.has(id)) visibleBaseline.add(id);
+      for (const id of visibleCandidates.keys()) if (!mounted.has(id) || newMetadata.has(id)) visibleCandidates.delete(id);
+      for (const card of cards) {
+        const id = cardId(card);
+        if (!id || newMetadata.has(id)) continue;
+        const row = visibleRow(card);
+        if (grouping) rows.push({ ...row, unread: false, pinned: false });
+        if (initialSnapshotPending || visibleBaseline.has(id)) continue;
+        if (!visibleCandidates.has(id)) {
+          visibleCandidates.set(id, Date.now());
+          scheduleScan(1500);
+        } else if (Date.now() - visibleCandidates.get(id) >= 1500) {
+          visibleCandidates.set(id, Infinity);
+          chrome.runtime.sendMessage({ type: 'VISIBLE_ARRIVAL', attendance: row }).then(response => {
+            if (!response?.success) visibleCandidates.delete(id);
+          }).catch(() => visibleCandidates.delete(id));
+        } else if (Number.isFinite(visibleCandidates.get(id))) {
+          scheduleScan(visibleCandidates.get(id) + 1500 - Date.now());
+        }
+      }
+      if (grouping) {
+        for (const item of newMetadata.values()) {
+          rows.push({ ...item, tags: item.tags || [], highlighted: settings.colorHighlightEnabled && item.protocol === highlightedProtocol });
+        }
+      }
+    } else if (grouping || settings.notifyClientMessages) {
+      const ids = new Set();
+      for (const card of root.querySelectorAll('.chat[data-id]')) {
+        const protocol = extractProtocol(card);
+        if (!protocol) continue;
+        const id = cardId(card) || protocol;
+        const indicator = card.querySelector('.notifica.piscar');
+        const tags = [...card.querySelectorAll('.tags .tag:not([data-opa-notify-tag]):not([data-opalert-tag]):not([id^="tag-departamento-"])')].map(tag => tag.textContent.trim()).filter(Boolean);
+        const company = card.querySelector('.corpo > .title')?.textContent.trim() || 'Empresa não identificada';
+        const item = { id, protocol, company, tags, unread: Boolean(indicator), pinned: Boolean(card.querySelector('.icone-atendimento-fixado')) };
+        ids.add(id);
+        const token = indicator && (indicator.dataset.messageId || indicator.textContent.trim() || 'unread');
+        observeMessage(item, { id: token || '', incoming: Boolean(indicator) }, true);
+        if (grouping) {
+          let node = card;
+          while (node.parentElement && node.parentElement !== root) node = node.parentElement;
+          rows.push({ ...item, node });
+        }
+      }
+      for (const id of cursors.keys()) if (!ids.has(id)) cursors.delete(id);
+    }
+    if (grouping && globalThis.OpaNotifyGroups) {
+      groups ||= new globalThis.OpaNotifyGroups(focusAttendance);
+      groups.update(root, rows, settings, modern);
+    }
+  }
+
   function observePage() {
     observer = new MutationObserver(mutations => {
+      mutations = mutations.filter(m => m.attributeName !== 'class' ||
+        m.target.matches('.notifica, [data-tutorial="customer-service-queue-in-progress"]') ||
+        m.oldValue?.split(' ').includes('notifica'));
+      if (!mutations.length) return;
       let shouldScanAttendances = false;
       let shouldCheckMotivo = false;
 
@@ -439,6 +601,9 @@
         shouldCheckMotivo = true;
       }
 
+      if (!isNewInterface() && (settings.groupByTag || settings.notifyClientMessages)) {
+        shouldScanAttendances ||= mutations.some(m => (m.target.parentElement || m.target).closest?.('.list_dados'));
+      }
       if (shouldScanAttendances) {
         applyHighlightedAttendance();
         scheduleScan(350);
@@ -454,7 +619,8 @@
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['title', 'aria-expanded', 'aria-selected', 'data-active', 'data-customer-service-id', 'data-protocol']
+      attributeOldValue: true,
+      attributeFilter: ['class', 'itemid', 'data-tag-names', 'data-message-id', 'title', 'aria-expanded', 'aria-selected', 'data-active', 'data-customer-service-id', 'data-protocol']
     });
   }
 
@@ -474,8 +640,11 @@
   }
 
   async function scanAndSend(force = false) {
+    if (scanBusy) { scheduleScan(100, force); return; }
+    updateQueueFeatures();
     let items;
-    if (isNewInterface()) {
+    const completeSnapshot = isNewInterface();
+    if (completeSnapshot) {
       if (!isPersonalNewQueue()) { newQueue = null; queuePages.clear(); confirmationRefreshPending = false; confirmationSnapshotReady = false; return; }
       if (document.querySelector(`${NEW_LIST} input:not([type=checkbox]):not([type=radio])`)?.value?.trim()) return;
       const freshConfirmation = confirmationSnapshotReady;
@@ -521,7 +690,7 @@
 
     }
 
-    if (items.length === 0 && Date.now() - scriptStartedAt < INITIAL_EMPTY_DELAY_MS) {
+    if (!completeSnapshot && items.length === 0 && Date.now() - scriptStartedAt < INITIAL_EMPTY_DELAY_MS) {
       scheduleScan(1000);
       return;
     }
@@ -532,14 +701,14 @@
       .join('|');
     const now = Date.now();
 
-    if (fingerprint !== candidateFingerprint) {
+    if (!completeSnapshot && fingerprint !== candidateFingerprint) {
       candidateFingerprint = fingerprint;
       candidateSince = now;
       scheduleScan(STABILITY_DELAY_MS);
       return;
     }
 
-    if (now - candidateSince < STABILITY_DELAY_MS) {
+    if (!completeSnapshot && now - candidateSince < STABILITY_DELAY_MS) {
       scheduleScan(STABILITY_DELAY_MS - (now - candidateSince));
       return;
     }
@@ -549,13 +718,16 @@
       now - lastSentAt < UNCHANGED_HEARTBEAT_MS
     ) return;
 
+    scanBusy = true;
     const response = await chrome.runtime.sendMessage({
+      completeSnapshot,
       type: 'ATTENDANCE_SCAN',
       initialRead: initialSnapshotPending,
       items,
       pageUrl: location.href,
       scannedAt: now
     }).catch(() => null);
+    scanBusy = false;
     if (response?.success) {
       initialSnapshotPending = false;
       lastSentFingerprint = fingerprint;
@@ -605,7 +777,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.5.5' });
+      sendResponse({ success: true, ready: true, version: '1.6.0' });
       return false;
     }
 
@@ -615,7 +787,7 @@
           message.attendance,
           message.duration,
           message.isTest === true,
-          message.eventType === 'finished' ? 'finished' : 'received',
+          ['finished', 'message'].includes(message.eventType) ? message.eventType : 'received',
           message.sourceTabId,
           message.position
         );
@@ -629,7 +801,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.5.5', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.6.0', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 
@@ -639,7 +811,18 @@
     }
 
     if (message?.type === 'FOCUS_ATTENDANCE') {
-      focusAttendance(message.attendance).then(found => sendResponse({ success: found })).catch(() => sendResponse({ success: false }));
+      focusAttendance(message.attendance).then(found => {
+        if (!found) {
+          ensureToastRoot();
+          const status = document.createElement('div');
+          status.className = 'toast';
+          status.setAttribute('role', 'status');
+          status.textContent = 'Conversa indisponível em Meus atendimentos.';
+          toastContainer.prepend(status);
+          setTimeout(() => status.remove(), 4000);
+        }
+        sendResponse({ success: found });
+      }).catch(() => sendResponse({ success: false }));
       return true;
     }
 
@@ -1276,15 +1459,23 @@
     toastContainer.style.flexDirection = bottom ? 'column-reverse' : 'column';
 
     const isFinished = eventType === 'finished';
+    const receiptTitle = eventType === 'message' ? 'Nova mensagem do cliente' : 'Novo atendimento recebido';
     const duration = clamp(Number(durationValue) || 6000, 5000, 30000);
     const toast = document.createElement('article');
     toast.className = `toast ${isFinished ? 'finished' : 'received'}`;
     toast.setAttribute('role', 'alert');
+    toast.tabIndex = 0;
+    toast.addEventListener('keydown', event => {
+      if (event.target === toast && ['Enter', ' '].includes(event.key)) {
+        event.preventDefault();
+        toast.click();
+      }
+    });
     toast.setAttribute(
       'aria-label',
       isFinished
         ? 'Atendimento finalizado. Clique para copiar o protocolo.'
-        : 'Novo atendimento recebido. Clique para abrir.'
+        : receiptTitle + '. Clique para abrir a conversa.'
     );
 
     const icon = document.createElement('div');
@@ -1296,7 +1487,7 @@
     heading.className = 'heading';
     heading.textContent = isFinished
       ? 'Atendimento Finalizado'
-      : 'Novo atendimento recebido';
+      : receiptTitle;
 
     if (isTest) {
       const badge = document.createElement('span');
@@ -1311,7 +1502,7 @@
 
     const protocol = document.createElement('div');
     protocol.className = 'protocol';
-    protocol.textContent = attendance?.protocol || 'Protocolo não identificado';
+    protocol.textContent = attendance?.protocol || '';
 
     content.append(heading, company, protocol);
 
@@ -1374,9 +1565,15 @@
       }
 
       if (!isTest) {
-        if (sourceTabId) {
-          await chrome.runtime.sendMessage({ type: 'OPEN_SOURCE_ATTENDANCE', sourceTabId, attendance }).catch(() => undefined);
-        } else focusAttendance(attendance);
+        const opened = sourceTabId
+          ? (await chrome.runtime.sendMessage({ type: 'OPEN_SOURCE_ATTENDANCE', sourceTabId, attendance }).catch(() => null))?.success
+          : await focusAttendance(attendance);
+        if (!opened) {
+          clearTimeout(timeout);
+          heading.textContent = 'Conversa indisponível na fila';
+          timeout = setTimeout(() => removeToast(toast), 2200);
+          return;
+        }
       }
       clearTimeout(timeout);
       progressAnimation.cancel();
@@ -1432,23 +1629,35 @@
   }
 
   async function focusAttendance(attendance) {
+    groups?.reveal(attendance?.id);
     let target = null;
     if (isNewInterface()) {
       target = [...document.querySelectorAll(NEW_CARD)].find(card => cardId(card) === attendance?.id || extractProtocol(card) === attendance?.protocol);
     }
 
-    if (!target && isNewInterface() && newQueue) {
-      const index = newQueue.findIndex(item => item.id === attendance?.id || item.protocol === attendance?.protocol);
+    if (!target && isNewInterface() && newMetadata.size) {
+      const queue = [...newMetadata.values()];
+      const index = queue.findIndex(item => item.id === attendance?.id || item.protocol === attendance?.protocol);
       const list = document.querySelector(NEW_LIST);
       const scroller = [...list.querySelectorAll('div')].find(element => element.scrollHeight > element.clientHeight && /auto|scroll/.test(getComputedStyle(element).overflowY));
       if (index >= 0 && scroller) {
-        // The list uses variable-height virtualization; estimate from the full
-        // extent, then wait for React to mount the requested row.
-        for (let attempt = 0; attempt < 4 && !target; attempt++) {
-          scroller.scrollTop = Math.max(0, index * scroller.scrollHeight / newQueue.length - (attempt % 2) * scroller.clientHeight / 2);
+        // The native rows have variable heights. Refine the offset using the
+        // actual mounted IDs instead of assuming every row has equal height.
+        const indices = new Map(queue.map((item, i) => [item.id, i]));
+        let low = 0;
+        let high = scroller.scrollHeight - scroller.clientHeight;
+        let offset = high * index / Math.max(1, queue.length - 1);
+        for (let attempt = 0; attempt < 10 && !target; attempt++) {
+          scroller.scrollTop = offset;
           scroller.dispatchEvent(new Event('scroll'));
-          await new Promise(resolve => setTimeout(resolve, 150));
-          target = [...document.querySelectorAll(NEW_CARD)].find(card => cardId(card) === attendance?.id || extractProtocol(card) === attendance?.protocol);
+          await new Promise(resolve => setTimeout(resolve, 120));
+          const mounted = [...list.querySelectorAll('[itemid]')];
+          target = mounted.find(card => cardId(card) === attendance?.id || extractProtocol(card) === attendance?.protocol);
+          const positions = mounted.map(card => indices.get(cardId(card))).filter(Number.isInteger);
+          if (!positions.length) continue;
+          if (Math.max(...positions) < index) low = offset;
+          else if (Math.min(...positions) > index) high = offset;
+          offset = (low + high) / 2;
         }
       }
     }
@@ -1476,7 +1685,7 @@
     }, 2200);
 
     const clickable = cardClickTarget(target);
-    setTimeout(() => clickable.click(), 250);
+    clickable.click();
     return true;
   }
 

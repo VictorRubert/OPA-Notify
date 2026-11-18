@@ -1,4 +1,4 @@
-const EXTENSION_VERSION = '1.5.5';
+const EXTENSION_VERSION = '1.6.0';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -23,6 +23,12 @@ const DEFAULT_SETTINGS = Object.freeze({
   motivoBlinkEnabled: true,
   motivoChargeEnabled: true,
   notifyOnFinished: true,
+  groupByTag: false,
+  notifyClientMessages: false,
+  messageScope: 'all',
+  tagMode: 'exclude',
+  groupTags: [],
+  priorityTags: [],
   soundEnabled: true,
   volume: 0.8,
   soundPreset: 'classic',
@@ -33,6 +39,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 
 let creatingOffscreenDocument = null;
 let scanQueue = Promise.resolve();
+let messageNotificationSequence = 0;
 const contentInjectionPromises = new Map();
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -99,9 +106,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'VISIBLE_ARRIVAL' || message.type === 'CLIENT_MESSAGE') {
+    if (!sender.tab?.id || !isSupportUrl(sender.tab.url)) return false;
+    scanQueue = scanQueue.then(() => processQueueSignal(message, sender))
+      .then(result => sendResponse(result))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === 'ATTENDANCE_SCAN') {
     scanQueue = scanQueue
-      .then(() => processAttendanceScan(message.items, sender, { initialRead: message.initialRead === true }))
+      .then(() => processAttendanceScan(message.items, sender, { initialRead: message.initialRead === true, completeSnapshot: message.completeSnapshot === true }))
       .then(result => sendResponse(result))
       .catch(error => {
         console.error('Falha ao processar leitura da fila:', error);
@@ -168,7 +183,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-async function processAttendanceScan(rawItems, sender, { initialRead = false } = {}) {
+// Serialize positive signals with full scans so the DOM and server cannot
+// independently announce the same arrival. A visible row never proves a departure.
+async function processQueueSignal(message, sender) {
+  const settings = await getSettings();
+  if (!settings.enabled) return { success: true };
+  const raw = message.attendance;
+  if (!raw || typeof raw.id !== 'string' || !raw.id || typeof raw.company !== 'string') return { success: false };
+  const attendance = { id: raw.id.slice(0, 120), protocol: normalizeProtocol(raw.protocol), company: raw.company.slice(0, 250) };
+  if (message.type === 'VISIBLE_ARRIVAL') {
+    const { attendanceSnapshot, pendingRemovals } = await chrome.storage.local.get(['attendanceSnapshot', 'pendingRemovals']);
+    const known = [...(attendanceSnapshot || []), ...Object.values(pendingRemovals || {}).map(entry => entry.attendance)];
+    if (known.some(item => item?.id === attendance.id)) return { success: true };
+    const { visibleArrivals = {} } = await chrome.storage.session.get('visibleArrivals');
+    const pending = pruneTimestampMap(visibleArrivals, Date.now());
+    const key = 'id:' + attendance.id;
+    if (!pending[key]) {
+      pending[key] = Date.now();
+      await chrome.storage.session.set({ visibleArrivals: pending, lastVisibleArrivalAt: pending[key] });
+      await announceAttendance(attendance, sender, settings, 'received');
+    }
+    return { success: true };
+  }
+  if (!settings.notifyClientMessages || !attendance.protocol) return { success: true };
+  const priorities = new Set(settings.priorityTags.map(tag => tag.trim().toLocaleLowerCase()));
+  if (settings.messageScope === 'priority' && !message.tags?.some(tag => typeof tag === 'string' && priorities.has(tag.trim().toLocaleLowerCase()))) return { success: true };
+  if (typeof message.cursor !== 'string' || !message.cursor) return { success: false };
+  const { recentClientMessages = {} } = await chrome.storage.session.get('recentClientMessages');
+  const recent = pruneTimestampMap(recentClientMessages, Date.now());
+  const key = JSON.stringify([attendance.id, message.cursor.slice(0, 160)]);
+  const ttl = message.legacy === true ? 2000 : NOTIFIED_TTL_MS;
+  if (!recent[key] || Date.now() - recent[key] >= ttl) {
+    recent[key] = Date.now();
+    // Bound session storage even on long, high-volume shifts.
+    await chrome.storage.session.set({ recentClientMessages: Object.fromEntries(Object.entries(recent).sort((a,b) => b[1]-a[1]).slice(0, 2000)) });
+    await announceAttendance(attendance, sender, settings, 'message');
+  }
+  return { success: true };
+}
+
+async function processAttendanceScan(rawItems, sender, { initialRead = false, completeSnapshot = false } = {}) {
   const now = Date.now();
   const currentItems = normalizeAttendances(rawItems);
   const currentMap = new Map(currentItems.map(item => [item.protocol, item]));
@@ -176,7 +230,6 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
   const stored = await chrome.storage.local.get([
     'attendanceSnapshot',
     'snapshotSavedAt',
-    'recentlyNotified',
     'recentlyFinished',
     'pendingRemovals',
     'baselineGraceUntil',
@@ -192,9 +245,8 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
   const snapshotIsStale = previousSavedAt === 0 || now - previousSavedAt > SNAPSHOT_STALE_MS;
   const forceBaselineUntil = Number(stored.forceBaselineUntil) || 0;
   const storedGraceUntil = Number(stored.baselineGraceUntil) || 0;
-  const baselineMode = initialRead || snapshotIsStale || now < forceBaselineUntil || now < storedGraceUntil;
+  const baselineMode = initialRead || snapshotIsStale || now < forceBaselineUntil || (!completeSnapshot && now < storedGraceUntil);
 
-  const recentlyNotified = pruneTimestampMap(stored.recentlyNotified, now);
   const recentlyFinished = pruneTimestampMap(stored.recentlyFinished, now);
   const pendingRemovals = normalizePendingRemovals(stored.pendingRemovals);
   const pendingBeforeScan = new Set(Object.keys(pendingRemovals));
@@ -204,7 +256,6 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
   for (const item of currentItems) {
     if (recentlyFinished[item.protocol]) {
       delete recentlyFinished[item.protocol];
-      delete recentlyNotified[item.protocol];
     }
   }
 
@@ -214,8 +265,7 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
   if (!baselineMode) {
     newAttendances = currentItems.filter(item => (
       !previousProtocols.has(item.protocol) &&
-      !pendingBeforeScan.has(item.protocol) &&
-      !recentlyNotified[item.protocol]
+      !pendingBeforeScan.has(item.protocol)
     ));
 
     for (const protocol of Object.keys(pendingRemovals)) {
@@ -253,10 +303,6 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
     }
   }
 
-  for (const item of newAttendances) {
-    recentlyNotified[item.protocol] = now;
-  }
-
   const baselineGraceUntil = initialRead || snapshotIsStale || now < forceBaselineUntil
     ? Math.max(storedGraceUntil, now + BASELINE_GRACE_MS)
     : storedGraceUntil;
@@ -273,7 +319,6 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
   await chrome.storage.local.set({
     attendanceSnapshot: currentItems,
     snapshotSavedAt: now,
-    recentlyNotified,
     recentlyFinished,
     pendingRemovals,
     baselineGraceUntil,
@@ -283,6 +328,13 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
     lastDetectedCount: currentItems.length,
     attendanceHistory
   });
+
+  const { visibleArrivals = {} } = await chrome.storage.session.get('visibleArrivals');
+  const previouslyAnnounced = new Set(currentItems.filter(item => visibleArrivals['id:' + item.id]).map(item => item.id));
+  if (previouslyAnnounced.size) {
+    for (const id of previouslyAnnounced) delete visibleArrivals['id:' + id];
+    await chrome.storage.session.set({ visibleArrivals });
+  }
 
   if (baselineMode) {
     return {
@@ -302,7 +354,7 @@ async function processAttendanceScan(rawItems, sender, { initialRead = false } =
 
   if (settings.enabled) {
     for (const attendance of newAttendances) {
-      await announceAttendance(attendance, sender, settings, 'received');
+      if (!previouslyAnnounced.has(attendance.id)) await announceAttendance(attendance, sender, settings, 'received');
     }
 
     if (settings.notifyOnFinished) {
@@ -542,7 +594,7 @@ async function ensureContentScript(tabId, { requireMonitor = true } = {}) {
   const injection = (async () => {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ['content/content.js']
+      files: ['content/groups.js', 'content/content.js']
     });
 
     await delay(150);
@@ -775,14 +827,15 @@ async function openSourceAttendance(tabId, attendance) {
 }
 
 async function showSystemNotification(attendance, sourceTabId, eventType) {
-  const id = `opa:${eventType}:${attendance.protocol}`;
+  const suffix = eventType === 'message' ? `:${Date.now()}:${++messageNotificationSequence}` : '';
+  const id = `opa:${eventType}:${attendance.protocol || attendance.id}${suffix}`;
   const key = `notification:${id}`;
   await chrome.storage.session.set({ [key]: { sourceTabId, attendance } });
   try {
     await chrome.notifications.create(id, {
       type: 'basic', iconUrl: 'icons/icon128.png',
-      title: eventType === 'finished' ? 'Um atendimento acabou de sair da sua fila!' : 'Um atendimento novo foi recebido!',
-      message: `${attendance.protocol} - ${attendance.company}`,
+      title: eventType === 'message' ? 'Nova mensagem do cliente!' : eventType === 'finished' ? 'Um atendimento acabou de sair da sua fila!' : 'Um atendimento novo foi recebido!',
+      message: [attendance.protocol, attendance.company].filter(Boolean).join(' - '),
       silent: true
     });
   } catch (error) {
@@ -807,7 +860,7 @@ async function getDiagnostics() {
   const tab = active.find(tab => isSupportUrl(tab.url)) || (await chrome.tabs.query({ url: SUPPORT_URL_PATTERNS }))[0];
   const settings = await getSettings();
   const stored = await chrome.storage.local.get(['lastCheckAt', 'lastDetectedCount', 'pendingRemovals']);
-  const deliveries = await chrome.storage.session.get(['lastDelivery:received', 'lastDelivery:finished']);
+  const deliveries = await chrome.storage.session.get(['lastDelivery:received', 'lastDelivery:finished', 'lastDelivery:message', 'lastVisibleArrivalAt']);
   let monitor = null;
   let error = null;
   if (tab?.id) {
@@ -822,7 +875,9 @@ async function getDiagnostics() {
     systemNotificationsEnabled: settings.systemNotificationsEnabled,
     lastCheckAt: stored.lastCheckAt || null, lastDetectedCount: stored.lastDetectedCount ?? null,
     pendingRemovalCount: Object.keys(stored.pendingRemovals || {}).length,
-    deliveries: { received: deliveries['lastDelivery:received'] || null, finished: deliveries['lastDelivery:finished'] || null },
+    lastVisibleArrivalAt: deliveries.lastVisibleArrivalAt || null,
+    notifyClientMessages: settings.notifyClientMessages,
+    deliveries: { message: deliveries['lastDelivery:message'] || null, received: deliveries['lastDelivery:received'] || null, finished: deliveries['lastDelivery:finished'] || null },
     monitor, error
   };
 }

@@ -28,7 +28,7 @@ const html='<button data-tutorial="customer-service-queue-in-progress" class="bg
   await page.exposeFunction('readStorage',keys=>chrome.storage.local.get(keys));
   await page.exposeFunction('backgroundMessage',async message=>{
    if(message.type!=='ATTENDANCE_SCAN')return {success:true};
-   clock=message.scannedAt;context.items=message.items;context.options={initialRead:message.initialRead===true};
+   clock=message.scannedAt;context.items=message.items;context.options={initialRead:message.initialRead===true,completeSnapshot:message.completeSnapshot===true};
    return vm.runInContext('processAttendanceScan(items,{tab:{id:1}},options)',context);
   });
   await page.addInitScript({content:`

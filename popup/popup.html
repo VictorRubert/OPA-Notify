@@ -100,6 +100,48 @@
         <input type="checkbox" id="notifyOnFinished">
         <span class="switch" aria-hidden="true"></span>
       </label>
+      <label class="toggle-row">
+        <span><strong>Avisar novas mensagens do cliente</strong><small>Clique no aviso para abrir a conversa.</small></span>
+        <input type="checkbox" id="notifyClientMessages"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <label class="field-column" id="scopeArea">
+        <span>Quais atendimentos avisar</span>
+        <select id="messageScope">
+          <option value="all">Todos os atendimentos</option>
+          <option value="priority">Somente etiquetas prioritárias</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Etiquetas</h2>
+      <label class="toggle-row">
+        <span><strong>Agrupar por etiqueta</strong><small>Organiza “Meus atendimentos” em grupos recolhíveis.</small></span>
+        <input type="checkbox" id="groupByTag"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <div id="groupOptions">
+        <label class="field-column">
+          <span>Etiquetas para agrupar</span>
+          <select id="tagMode">
+            <option value="exclude">Todas, exceto as listadas</option>
+            <option value="include">Somente as listadas</option>
+          </select>
+        </label>
+        <form class="tag-entry" id="groupTagForm">
+          <input id="groupTagName" aria-label="Nome da etiqueta de agrupamento" maxlength="120" placeholder="Nome da etiqueta">
+          <button type="submit">Adicionar</button>
+        </form>
+        <ul class="tag-list" id="groupTags"></ul>
+      </div>
+      <div id="priorityArea" class="field-column">
+        <strong>Etiquetas prioritárias</strong>
+        <small>A primeira tem maior prioridade. Arraste ou use as setas para reordenar.</small>
+        <form class="tag-entry" id="priorityTagForm">
+          <input id="priorityTagName" aria-label="Nome da etiqueta prioritária" maxlength="120" placeholder="Nome da etiqueta">
+          <button type="submit">Adicionar</button>
+        </form>
+        <ul class="tag-list" id="priorityTags"></ul>
+      </div>
     </section>
 
     <section class="card">
@@ -160,7 +202,7 @@
       <label class="toggle-row">
         <span>
           <strong>Reproduzir som</strong>
-          <small>Vale para recebimentos e finalizações.</small>
+          <small>Usa o mesmo som nos avisos de atendimento e mensagem.</small>
         </span>
         <input type="checkbox" id="soundEnabled">
         <span class="switch" aria-hidden="true"></span>
@@ -231,7 +273,7 @@
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Opa!Notify 1.5.5</footer>
+  <footer>Opa!Notify 1.6.0</footer>
   <script src="popup.js"></script>
 </body>
 </html>

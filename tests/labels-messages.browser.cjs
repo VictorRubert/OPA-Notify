@@ -1,0 +1,166 @@
+// Synthetic Opa pages. Exercises real DOM controls and the extension's script entry points.
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+
+const root = path.join(__dirname, '..');
+const origin = 'https://suporte.ixcsoft.com.br';
+const queueEvent = 'customer-services-ui:customer-service-queues:in-progress:list';
+const company = 'Empresa de teste';
+const item = (n, tags = []) => ({
+  _id: 'chat-' + n, protocolo: 'OPA10000' + n, id_cliente: { nome: company + n },
+  tags: tags.map(nome => ({ nome })), motivos: [], lastMessage: { _id: 'old' + n }
+});
+const legacyChat = (i, tags) => '<div><div class="chat" data-id="chat-' + i + '"><div class="corpo"><span class="title">' + company + i + '</span><span>OPA10000' + i + '</span><div class="tags">' + tags.map(t => '<span class="tag">' + t + '</span>').join('') + '</div></div></div></div>';
+const card = i => '<li itemid="chat-' + i + '"><button><p class="font-medium">' + company + i + '</p></button></li>';
+const rows = [item(1, ['A', 'VIP']), item(2, ['B'])];
+const legacy = '<div class="item selected" data-id="chat"></div><div class="list"><button data-id="meus_atendimentos" class="selected_filtro_user_status"></button><div class="list_dados">' + legacyChat(1, ['A','VIP']) + legacyChat(2, ['B']) + '</div></div>';
+const modern = '<button data-tutorial="customer-service-queue-in-progress" data-active="true"></button><section data-tutorial="customer-service-list"><button data-tutorial="customer-service-view-selector">Meus atendimentos</button><div style="height:400px"><div class="sidebar-scroll" style="height:100%;overflow:auto"><ul>' + card(1) + card(2) + '</ul></div></div></section>';
+
+async function queue(page, items) {
+  await page.evaluate(({ event, items }) => socket.receive('42' + JSON.stringify([event, { items, page: 1, hasMore: false }])), { event: queueEvent, items });
+  await page.waitForTimeout(80);
+}
+
+async function run(browser, modernUI) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', err => errors.push(err.message));
+  await page.route(origin + '/**', r => r.fulfill({ contentType:'text/html', body: modernUI ? modern : legacy }));
+  await page.addInitScript(() => {
+    window.settings = { notifyClientMessages: true, groupByTag: true, priorityTags: ['VIP'], tagMode:'exclude', groupTags: ['B'] };
+    window.sent = [];
+    window.chrome = {
+      storage: { local: { get: async () => settings }, onChanged: { addListener(fn) { window.changed = fn; } } },
+      runtime: { onMessage: { addListener(fn) { window.listener = fn; } }, sendMessage: async m => { sent.push(m); return {success:true}; } }
+    };
+    window.call = m => new Promise(resolve => listener(m, {}, resolve));
+    window.WebSocket = class {
+      constructor() { this.handlers = {}; }
+      send() {}
+      addEventListener(k, fn) { this.handlers[k] = fn; }
+      receive(data) { this.handlers.message({data}); }
+    };
+  });
+  await page.goto(origin);
+  for (const file of ['queue-bridge','groups','content']) await page.addScriptTag({path:path.join(root,'content',file+'.js')});
+  if (modernUI) {
+    await page.evaluate(() => { window.socket = new WebSocket(); });
+    await queue(page, rows);
+  }
+  await page.evaluate(() => call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
+  const head = page.getByRole('button', {name: /VIP \(1\)/});
+  await head.waitFor();
+  assert((await page.locator('.opa-groups-head').allTextContents()).some(x => x.includes('Sem grupo')));
+  assert((await page.locator('.opa-groups-head').allTextContents()).some(x => x.includes('A (1)')));
+  await head.click();
+  assert.equal(await head.getAttribute('aria-expanded'), 'false');
+  const count = () => page.evaluate(() => sent.filter(m => m.type === 'CLIENT_MESSAGE').length);
+  assert.equal(await count(), 0);
+
+  if (modernUI) {
+    const incoming = { _id:'customer-1', tipoDestinatario:'usuarios', statusEnvio:{status:'sent'} };
+    const changed = [{ ...rows[0], lastMessage: incoming }, rows[1]];
+    await queue(page, changed);
+    await queue(page, changed);
+    assert.equal(await count(), 1);
+    await page.evaluate(data => socket.receive('42' + JSON.stringify(['message-update', data])), { ...incoming, _id:'customer-2', id_rota:'chat-1' });
+    await page.waitForTimeout(60);
+    assert.equal(await count(), 2);
+    await queue(page, [{...rows[0],lastMessage:{...incoming,_id:'note',systemNoteMessage:true}},rows[1]]);
+    assert.equal(await count(), 2);
+    // A visible company missing from repeated complete snapshots emits exactly one positive signal.
+    await page.locator('ul').evaluate((node, row) => node.insertAdjacentHTML('beforeend',row),card(3));
+    await page.waitForFunction(() => sent.some(m => m.type === 'VISIBLE_ARRIVAL'));
+    assert.equal(await page.evaluate(() => sent.find(m => m.type === 'VISIBLE_ARRIVAL').attendance.company),company+3);
+    await queue(page,rows);
+    assert.equal(await page.evaluate(() => sent.filter(m => m.type === 'VISIBLE_ARRIVAL').length),1);
+    await queue(page,[...rows,item(3)]);
+    await page.getByRole('button',{name:'Voltar à lista do Opa'}).click();
+    assert.equal(await page.locator('.opa-groups-panel').isVisible(),false);
+    await page.getByRole('button',{name:'Por etiquetas'}).click();
+  } else {
+    await page.locator('.chat').first().evaluate(el=>{const b=document.createElement('b');b.className='notifica piscar';b.textContent='1';el.append(b);});
+    await page.evaluate(()=>call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
+    await page.waitForFunction(()=> sent.some(m=>m.type==='CLIENT_MESSAGE'));
+    assert.equal(await count(),1);
+    assert((await head.textContent()).includes('●'));
+    assert.equal(await page.locator('.chat').first().isVisible(),false);
+  }
+  const target = modernUI ? '[itemid="chat-1"] button' : '.chat[data-id="chat-1"] .corpo';
+  await page.locator(target).evaluate(el => el.onclick = () => window.opened = 'chat-1');
+  const alert = { type:'SHOW_ATTENDANCE_EVENT', eventType:'message', attendance:{id:'chat-1',company,protocol:'OPA100001'} };
+  await page.evaluate(m => call(m),alert);
+  await page.locator('.toast').filter({hasText:'Nova mensagem do cliente'}).click();
+  assert.equal(await page.evaluate(()=>window.opened),'chat-1');
+  assert.equal(await head.getAttribute('aria-expanded'),'true');
+  await page.evaluate(m=>call(m),{...alert,sourceTabId:42});
+  await page.locator('.toast').first().click();
+  assert(await page.evaluate(()=>sent.some(m=>m.type==='OPEN_SOURCE_ATTENDANCE' && m.sourceTabId===42 && m.attendance.id==='chat-1')));
+  await page.evaluate(()=>changed({groupByTag:{newValue:false},notifyClientMessages:{newValue:false}},'local'));
+  assert.equal(await page.locator('.opa-groups-head').count(),0);
+  if (modernUI) await queue(page,[{...rows[0],lastMessage:{_id:'off',tipoDestinatario:'usuarios'}},rows[1]]);
+  assert.equal(await count(),modernUI?2:1);
+  if (modernUI) {
+    await page.evaluate(()=>changed({notifyClientMessages:{newValue:true}},'local'));
+    await queue(page,[{...rows[0],lastMessage:{_id:'first-after-enable',tipoDestinatario:'usuarios'}},rows[1]]);
+    assert.equal(await count(),3);
+  }
+  assert.equal(await page.locator(target).isVisible(),true);
+  assert.deepEqual(errors,[]);
+  await page.close();
+}
+
+async function popup(browser) {
+  const page = await browser.newPage();
+  await page.addInitScript(() => {
+    window.chrome = {
+      storage: {local: {
+        get: async () => JSON.parse(localStorage.settings || '{}'),
+        set: async values => { localStorage.settings = JSON.stringify({...JSON.parse(localStorage.settings || '{}'), ...values}); }
+      }},
+      runtime: {sendMessage:async () => ({success:true,history:[]})}
+    };
+  });
+  await page.route('https://popup.example/**', route => {
+    const name = new URL(route.request().url()).pathname.slice(1);
+    if (!['popup.html','popup.css','popup.js'].includes(name)) return route.abort();
+    return route.fulfill({path:path.join(root,'popup',name)});
+  });
+  await page.goto('https://popup.example/popup.html');
+  assert.equal(await page.locator('#groupByTag').isChecked(),false);
+  assert.equal(await page.locator('#notifyClientMessages').isChecked(),false);
+  await page.getByText('Avisar novas mensagens do cliente',{exact:true}).click();
+  await page.selectOption('#messageScope','priority');
+  assert(await page.locator('#priorityArea').isVisible());
+  for (const tag of ['A','VIP']) {
+    await page.fill('#priorityTagName',tag);
+    await page.locator('#priorityTagForm button').click();
+  }
+  await page.getByRole('button',{name:'Subir VIP'}).click();
+  await page.getByText('Agrupar por etiqueta',{exact:true}).click();
+  await page.selectOption('#tagMode','include');
+  await page.fill('#groupTagName','VIP');
+  await page.locator('#groupTagForm button').click();
+  await page.reload();
+  assert.deepEqual(await page.locator('#priorityTags li span').allTextContents(),['VIP','A']);
+  assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),['VIP']);
+  assert.equal(await page.locator('#tagMode').inputValue(),'include');
+  await page.getByRole('button',{name:'Remover A',exact:true}).click();
+  await page.getByText('Agrupar por etiqueta',{exact:true}).click();
+  assert(await page.locator('#priorityArea').isVisible());
+  await page.getByText('Avisar novas mensagens do cliente',{exact:true}).click();
+  assert.equal(await page.locator('#priorityArea').isVisible(),false);
+  assert.equal(await page.locator('#groupOptions').isVisible(),false);
+  await page.close();
+}
+
+(async () => {
+  const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/lib/chromium/chromium',headless:true});
+  try {
+    await popup(browser);
+    await run(browser,false);
+    await run(browser,true);
+    console.log('PASS: legacy and modern grouping, unread transitions, click navigation, independent switches and visible arrival.');
+  } finally { await browser.close(); }
+})().catch(err => { console.error(err); process.exitCode=1; });

@@ -9,6 +9,8 @@ const DEFAULTS = {
   motivoBlinkEnabled: true,
   motivoChargeEnabled: true,
   notifyOnFinished: true,
+  groupByTag: false, notifyClientMessages: false, messageScope: 'all',
+  tagMode: 'exclude', groupTags: [], priorityTags: [],
   soundEnabled: true,
   volume: 0.8,
   soundPreset: 'classic',
@@ -50,13 +52,24 @@ function cacheElements() {
     'copyDiagnostics', 'testSound', 'testReceivedAlert', 'testFinishedAlert', 'resetBaseline',
     'feedback', 'currentCount', 'statusText', 'lastCheck', 'statusDot',
     'attendanceHistory', 'historyEmpty', 'historyCount',
-    'highlightProtocol', 'testHighlight', 'clearHighlight'
+    'highlightProtocol', 'testHighlight', 'clearHighlight',
+    'groupByTag', 'notifyClientMessages', 'messageScope', 'tagMode', 'groupOptions',
+    'scopeArea', 'priorityArea', 'groupTags', 'priorityTags', 'groupTagForm',
+    'priorityTagForm', 'groupTagName', 'priorityTagName'
   ]) {
     elements[id] = document.getElementById(id);
   }
 }
 
 function bindEvents() {
+  for (const key of ['groupByTag', 'notifyClientMessages', 'messageScope', 'tagMode']) {
+    elements[key].addEventListener('change', async () => {
+      updateTagControls();
+      await chrome.storage.local.set({ [key]: elements[key].type === 'checkbox' ? elements[key].checked : elements[key].value });
+    });
+  }
+  bindTagList('groupTags', elements.groupTagForm, elements.groupTagName);
+  bindTagList('priorityTags', elements.priorityTagForm, elements.priorityTagName);
   elements.enabled.addEventListener('change', saveSimpleSettings);
   elements.otherTabsEnabled.addEventListener('change', saveSimpleSettings);
   elements.systemNotificationsEnabled.addEventListener('change', saveSimpleSettings);
@@ -107,6 +120,12 @@ async function loadSettings() {
   const stored = await chrome.storage.local.get(Object.keys(DEFAULTS));
   const settings = { ...DEFAULTS, ...stored };
 
+  elements.groupByTag.checked = settings.groupByTag;
+  elements.notifyClientMessages.checked = settings.notifyClientMessages;
+  elements.messageScope.value = settings.messageScope;
+  elements.tagMode.value = settings.tagMode;
+  for (const key of ['groupTags', 'priorityTags']) renderTagList(key, settings[key]);
+  updateTagControls();
   elements.enabled.checked = settings.enabled;
   elements.visualEnabled.checked = settings.visualEnabled;
   elements.otherTabsEnabled.checked = settings.otherTabsEnabled;
@@ -150,6 +169,80 @@ async function saveSimpleSettings() {
   });
 
   showFeedback('Configuração salva.');
+}
+
+function updateTagControls() {
+  elements.groupOptions.hidden = !elements.groupByTag.checked;
+  elements.scopeArea.hidden = !elements.notifyClientMessages.checked;
+  elements.priorityArea.hidden = !elements.groupByTag.checked && !(elements.notifyClientMessages.checked && elements.messageScope.value === 'priority');
+}
+
+function renderTagList(key, names) {
+  const list = elements[key];
+  list.replaceChildren();
+  for (const [index, name] of names.entries()) {
+    const li = document.createElement('li');
+    li.dataset.name = name;
+    const label = document.createElement('span');
+    label.textContent = name;
+    li.append(label);
+    const control = (text, action, disabled = false) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = text;
+      b.dataset.action = action;
+      b.disabled = disabled;
+      b.setAttribute('aria-label', ({ up: 'Subir', down: 'Descer', remove: 'Remover' })[action] + ' ' + name);
+      li.append(b);
+    };
+    if (key === 'priorityTags') {
+      li.draggable = true;
+      control('↑', 'up', index === 0);
+      control('↓', 'down', index === names.length - 1);
+    }
+    control('×', 'remove');
+    list.append(li);
+  }
+}
+
+function bindTagList(key, form, input) {
+  const list = elements[key];
+  const names = () => [...list.children].map(li => li.dataset.name);
+  const save = values => {
+    renderTagList(key, values);
+    chrome.storage.local.set({ [key]: values }).catch(error => showFeedback(error.message, true));
+  };
+  const move = (from, to) => {
+    const values = names();
+    if (from < 0 || to < 0 || to >= values.length) return;
+    values.splice(to, 0, values.splice(from, 1)[0]);
+    save(values);
+  };
+  form.onsubmit = event => {
+    event.preventDefault();
+    const name = input.value.trim();
+    const values = names();
+    if (name && !values.some(value => value.toLocaleLowerCase() === name.toLocaleLowerCase())) save([...values, name]);
+    input.value = '';
+  };
+  list.onclick = event => {
+    const b = event.target.closest('[data-action]');
+    if (!b) return;
+    const row = b.closest('li').dataset.name;
+    const i = names().indexOf(row);
+    if (b.dataset.action === 'remove') save(names().filter(name => name !== row));
+    else move(i, i + (b.dataset.action === 'up' ? -1 : 1));
+  };
+  if (key === 'priorityTags') {
+    let dragged;
+    list.ondragstart = event => { dragged = event.target.closest('li')?.dataset.name; };
+    list.ondragover = event => event.preventDefault();
+    list.ondrop = event => {
+      event.preventDefault();
+      move(names().indexOf(dragged), names().indexOf(event.target.closest('li')?.dataset.name));
+    };
+    list.ondragend = () => { dragged = null; };
+  }
 }
 
 function updateDurationLabel() {
