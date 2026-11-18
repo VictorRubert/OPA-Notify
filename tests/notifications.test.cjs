@@ -250,36 +250,37 @@ test('A visible arrival opens by ID before the protocol is available and reconci
   assert.equal(s.local.attendanceHistory[0].protocol, item.protocol);
 });
 
-test('Client messages default to enabled and respect opt-out, scopes and channels, duplicate IDs and click target', async () => {
+test('Client messages stay in Chrome cards, carry the text and respect opt-out', async () => {
   const s = queueScenario();
   const item = { ...s.attendance, id: 'my-chat' };
-  s.ctx.signal = { type: 'CLIENT_MESSAGE', attendance: item, tags: ['VIP'], cursor: 'first' };
+  s.ctx.signal = { type: 'CLIENT_MESSAGE', attendance: item, tags: ['VIP'], cursor: 'first', text: 'Mensagem de teste' };
   const signal = () => vm.runInContext('processQueueSignal(signal,{tab:{id:1}})',s.ctx);
+  const cards = () => s.messages.filter(m => m.type === 'SHOW_ATTENDANCE_EVENT' && m.eventType === 'message');
   await signal();
-  assert.equal(s.notifications.length,1);
+  assert.equal(cards().length, 1);
+  assert.equal(cards()[0].attendance.messageText, 'Mensagem de teste');
+  assert.equal(s.notifications.length, 0);
+  assert.equal(s.session['lastDelivery:message'].system, 'disabled');
   s.ctx.signal.cursor = 'after-default';
   s.local.notifyClientMessages = false;
   await signal();
-  assert.equal(s.notifications.length,1);
+  assert.equal(cards().length, 1);
   s.local.notifyClientMessages = true;
-  s.local.groupByTag = false;
   s.local.messageScope = 'priority';
   await signal();
-  assert.equal(s.notifications.length, 1);
+  assert.equal(cards().length, 1);
   s.local.priorityTags = ['vip'];
   s.local.otherTabsEnabled = true;
   await signal(); await signal();
-  assert.equal(s.notifications.length, 2);
-  assert.equal(s.notifications[1].title, 'Nova mensagem do cliente!');
-  await s.click(s.notifications[1].id);
-  assert(s.messages.some(m => m.type === 'FOCUS_ATTENDANCE' && m.attendance.id === item.id));
-  assert(s.messages.some(m => m.eventType === 'message' && m.id === 2 && m.sourceTabId === 1));
+  assert.equal(cards().length, 3);
+  assert(cards().some(m => m.id === 2 && m.sourceTabId === 1 && m.attendance.messageText === 'Mensagem de teste'));
   s.ctx.signal.cursor = 'second';
   await signal();
-  assert.equal(s.notifications.length, 3);
+  assert.equal(cards().length, 5);
   s.local.enabled = false;
   s.ctx.signal.cursor = 'third'; await signal();
-  assert.equal(s.notifications.length, 3);
+  assert.equal(cards().length, 5);
+  assert.equal(s.notifications.length, 0);
 });
 
 test('Upgrade seeds the five tag rules once and keeps saved preferences', async () => {

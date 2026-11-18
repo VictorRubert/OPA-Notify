@@ -214,7 +214,7 @@ async function processQueueSignal(message, sender) {
     recent[key] = Date.now();
     // Bound session storage even on long, high-volume shifts.
     await chrome.storage.session.set({ recentClientMessages: Object.fromEntries(Object.entries(recent).sort((a,b) => b[1]-a[1]).slice(0, 2000)) });
-    await announceAttendance(attendance, sender, settings, 'message');
+    await announceAttendance({ ...attendance, messageText: typeof message.text === 'string' ? message.text.trim().slice(0, 500) : '' }, sender, settings, 'message');
   }
   return { success: true };
 }
@@ -459,7 +459,8 @@ function normalizePendingRemovals(value) {
 }
 
 async function announceAttendance(attendance, sender, settings, eventType, isTest = false) {
-  const delivery = { at: Date.now(), eventType, sourceVisual: settings.visualEnabled ? 'unavailable' : 'disabled', otherTabs: { enabled: settings.otherTabsEnabled, attempted: 0, delivered: 0, failed: 0 }, system: settings.systemNotificationsEnabled ? 'pending' : 'disabled' };
+  const systemEnabled = settings.systemNotificationsEnabled && eventType !== 'message';
+  const delivery = { at: Date.now(), eventType, sourceVisual: settings.visualEnabled ? 'unavailable' : 'disabled', otherTabs: { enabled: settings.otherTabsEnabled, attempted: 0, delivered: 0, failed: 0 }, system: systemEnabled ? 'pending' : 'disabled' };
   if (settings.visualEnabled && sender.tab?.id) {
     await sendToSupportTab(sender.tab.id, {
       type: 'SHOW_ATTENDANCE_EVENT',
@@ -490,7 +491,7 @@ async function announceAttendance(attendance, sender, settings, eventType, isTes
     delivery.otherTabs.failed = results.length - delivery.otherTabs.delivered;
   }
 
-  if (settings.systemNotificationsEnabled) {
+  if (systemEnabled) {
     await showSystemNotification(attendance, sender.tab?.id, eventType).then(() => { delivery.system = 'delivered'; }).catch(error => {
       delivery.system = 'failed';
       console.warn('Notificação do sistema indisponível:', error);

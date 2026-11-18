@@ -458,7 +458,7 @@
     if (!previous || !token || !cursor.incoming) return;
     if (legacy && /^\d+$/.test(token) && /^\d+$/.test(previous.last) && Number(token) <= Number(previous.last)) return;
     const attendance = { id, protocol: item.protocol, company: item.company };
-    chrome.runtime.sendMessage({ type: 'CLIENT_MESSAGE', attendance, tags: item.tags || [], cursor: token, legacy }).catch(console.warn);
+    chrome.runtime.sendMessage({ type: 'CLIENT_MESSAGE', attendance, tags: item.tags || [], cursor: token, text: cursor.text || '', legacy }).catch(console.warn);
   }
 
   function legacyQueueRoot() {
@@ -1357,9 +1357,8 @@
         --event-color-bg: rgba(69, 155, 245, .16);
         background: #172338;
       }
-      .message .company { font-size: 16px; font-weight: 700; }
-      .message .protocol { color: #b4c0d3; overflow-wrap: anywhere; }
-      .message-action { margin-top: 8px; color: var(--event-color-light); font-size: 12px; font-weight: 650; }
+      .message .heading { overflow-wrap: anywhere; }
+      .message-text { margin: 4px 0 0; color: #b4c0d3; font-size: 11px; font-weight: 550; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
       .message:focus-visible { outline: 2px solid var(--event-color-light); outline-offset: 2px; }
       .toast.copied {
         --event-color: #5da9ff;
@@ -1473,6 +1472,7 @@
     toastContainer.style.flexDirection = bottom ? 'column-reverse' : 'column';
 
     const isFinished = eventType === 'finished';
+    const isMessage = eventType === 'message';
     const { title, iconSvg } = {
       received: { title: 'Novo atendimento recebido', iconSvg: bellIconSvg },
       finished: { title: 'Atendimento Finalizado', iconSvg: copyIconSvg },
@@ -1493,7 +1493,7 @@
       'aria-label',
       isFinished
         ? 'Atendimento finalizado. Clique para copiar o protocolo.'
-        : title + '. Clique para abrir a conversa.'
+        : (isMessage ? (attendance?.company || 'Empresa não identificada') + '. Mensagem do cliente.' : title + '.') + ' Clique para abrir a conversa.'
     );
 
     const icon = document.createElement('div');
@@ -1503,7 +1503,7 @@
     const content = document.createElement('div');
     const heading = document.createElement('p');
     heading.className = 'heading';
-    heading.textContent = title;
+    heading.textContent = isMessage ? attendance?.company || 'Empresa não identificada' : title;
 
     if (isTest) {
       const badge = document.createElement('span');
@@ -1520,13 +1520,13 @@
     protocol.className = 'protocol';
     protocol.textContent = attendance?.protocol || '';
 
-    content.append(heading, company, protocol);
-
-    if (eventType === 'message') {
-      const action = document.createElement('div');
-      action.className = 'message-action';
-      action.textContent = 'Abrir conversa →';
-      content.appendChild(action);
+    if (isMessage) {
+      const messageText = document.createElement('p');
+      messageText.className = 'message-text';
+      messageText.textContent = attendance?.messageText || 'Mensagem recebida';
+      content.append(heading, messageText);
+    } else {
+      content.append(heading, company, protocol);
     }
 
     if (isFinished) {

@@ -56,13 +56,15 @@
     const parsed = decode(value);
     return parsed?.[0] === EVENT ? parsed[1] : null;
   }
-  // Only expose identifiers and classification. Message bodies never leave the page world.
+  // Forward only the latest customer message needed for the on-screen alert.
   function messageCursor(message) {
     if (typeof message?._id !== 'string' || !message._id) return null;
+    const incoming = message.tipoDestinatario === 'usuarios' && !message.id_atend &&
+      !message.systemMessage && !message.systemNoteMessage;
     return {
       id: message._id.slice(0, 120),
-      incoming: message.tipoDestinatario === 'usuarios' && !message.id_atend &&
-        !message.systemMessage && !message.systemNoteMessage
+      text: incoming && typeof message.mensagem === 'string' ? message.mensagem.trim().slice(0, 500) : '',
+      incoming
     };
   }
 

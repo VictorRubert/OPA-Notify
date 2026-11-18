@@ -100,7 +100,8 @@ test('Client direction and distinct IDs survive the bridge without chat text or 
     s.socket.receive('42'+JSON.stringify([EVENT,{page:1,hasMore:false,items:[{...base,lastMessage}]}]));
     const item = s.messages.filter(m=>m.kind==='page').at(-1).items[0];
     assert.deepEqual(item.tags,['VIP']);
-    assert.deepEqual(item.cursor,{id:'msg'+i,incoming:i===0});
-    assert(!JSON.stringify(item).includes('secret'));
+    assert.deepEqual(item.cursor,{id:'msg'+i,text:i===0?'secret':'',incoming:i===0});
+    assert(!JSON.stringify(item).includes('private-token'));
+    assert(!JSON.stringify(item).includes('project'));
   }
 });

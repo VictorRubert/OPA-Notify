@@ -59,11 +59,12 @@ async function run(browser, modernUI) {
   assert.equal(await count(), 0);
 
   if (modernUI) {
-    const incoming = { _id:'customer-1', tipoDestinatario:'usuarios', statusEnvio:{status:'sent'} };
+    const incoming = { _id:'customer-1', mensagem:'Olá, preciso de ajuda', tipoDestinatario:'usuarios', statusEnvio:{status:'sent'} };
     const changed = [{ ...rows[0], lastMessage: incoming }, rows[1]];
     await queue(page, changed);
     await queue(page, changed);
     assert.equal(await count(), 1);
+    assert.equal(await page.evaluate(()=>sent.find(m=>m.type==='CLIENT_MESSAGE').text),'Olá, preciso de ajuda');
     await page.evaluate(data => socket.receive('42' + JSON.stringify(['message-update', data])), { ...incoming, _id:'customer-2', id_rota:'chat-1' });
     await page.waitForTimeout(60);
     assert.equal(await count(), 2);
@@ -87,14 +88,16 @@ async function run(browser, modernUI) {
   }
   const target = modernUI ? '[itemid="chat-1"] button' : '.chat[data-id="chat-1"] .corpo';
   await page.locator(target).evaluate(el => el.onclick = () => window.opened = 'chat-1');
-  const alert = { type:'SHOW_ATTENDANCE_EVENT', eventType:'message', attendance:{id:'chat-1',company,protocol:'OPA100001'} };
+  const alert = { type:'SHOW_ATTENDANCE_EVENT', eventType:'message', attendance:{id:'chat-1',company,protocol:'OPA100001',messageText:'Olá, preciso de ajuda'} };
   await page.evaluate(m => call(m),alert);
   const messageCard = page.locator('.toast.message').first();
-  assert.equal(await messageCard.locator('.heading').innerText(),'Mensagem do cliente');
-  assert.equal(await messageCard.locator('.company').innerText(),company);
-  assert.equal(await messageCard.locator('.protocol').innerText(),'OPA100001');
+  assert.equal(await messageCard.locator('.heading').innerText(),company);
+  assert.equal(await messageCard.locator('.company').count(),0);
+  assert.equal(await messageCard.locator('.protocol').count(),0);
+  assert.equal(await messageCard.locator('.message-text').innerText(),'Olá, preciso de ajuda');
+  assert.equal(await messageCard.locator('.message-text').evaluate(el=>getComputedStyle(el).fontSize),'11px');
   assert.equal(await messageCard.evaluate(el=>getComputedStyle(el).borderLeftColor),'rgb(69, 155, 245)');
-  await messageCard.getByText('Abrir conversa →',{exact:true}).click();
+  await messageCard.click();
   assert.equal(await page.evaluate(()=>window.opened),'chat-1');
   assert.equal(await head.getAttribute('aria-expanded'),'true');
   await page.evaluate(m=>call(m),{...alert,sourceTabId:42});
