@@ -262,16 +262,16 @@
 
     <section class="card" id="maintenance">
       <h2>Manutenção</h2>
-      <button class="button clear-highlight" id="clearHighlight" type="button" disabled>Remover marcação atual</button>
-      <button class="button secondary" id="resetBaseline" type="button">Refazer leitura inicial</button>
-      <button class="button secondary" id="copyDiagnostics" type="button">Copiar diagnóstico</button>
-      <p class="hint">Ao refazer a leitura, os atendimentos atualmente visíveis viram a nova base e não geram aviso.</p>
+      <form class="tag-entry" id="maintenanceForm">
+        <input type="text" id="maintenanceCommand" aria-label="Comando" autocomplete="off" spellcheck="false" maxlength="40">
+        <button type="submit" id="maintenanceOk">OK</button>
+      </form>
     </section>
 
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Opa!Notify 1.6.9</footer>
+  <footer>Opa!Notify 1.6.10</footer>
   <script src="../content/tag-settings.js"></script>
   <script src="popup.js"></script>
 </body>

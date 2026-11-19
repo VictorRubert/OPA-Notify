@@ -1,4 +1,4 @@
-# Opa!Notify v1.6.9
+# Opa!Notify v1.6.10
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -45,7 +45,7 @@ O popup reúne o estado da fila, os cinco atendimentos recentes e atalhos para N
 - **Visual:** destaque roxo, tipo de preenchimento e controles de destaque, pisca e pop-up do motivo.
 - **Som:** escolha do áudio, arquivo personalizado e volume.
 - **Termostato:** humor do cliente e pendência externa automática na interface nova. Os dois recursos começam ligados e podem ser desativados separadamente. Desativar Opa!Notify também pausa o Termostato. O humor analisa as cinco últimas mensagens carregadas da conversa aberta; os outros cartões mostram o último resultado salvo. A pendência segue as regras originais de tempo (5 minutos a 8 horas), etiquetas e estado manual. Sem “Nesta fila”, utiliza a abertura como referência.
-- **Manutenção:** remoção da marcação atual, **Refazer leitura inicial**, que recria a base sem apagar o histórico, e **Copiar diagnóstico**.
+- **Manutenção:** campo de uso interno.
 
 ## Permissões e limites
 
@@ -55,7 +55,7 @@ As notificações do sistema exigem permissão e podem ser ocultadas pelo modo N
 
 ## Testes
 
-Em caso de falha, **Copiar diagnóstico**, em Manutenção, copia as versões, configurações dos canais, resultados de entrega e nomes/contagens dos eventos da fila, sem conversas ou dados dos clientes. Para os testes automatizados de lógica, execute com Node.js:
+Para os testes automatizados de lógica, execute com Node.js:
 
 ```sh
 node --test tests/*.test.cjs

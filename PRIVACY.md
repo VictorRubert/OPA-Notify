@@ -22,8 +22,6 @@ O armazenamento de sessão do Chrome contém identificadores e horários de even
 
 O Termostato guarda localmente, na chave `ixcOpa`, identificadores dos atendimentos, categoria e nota do humor, quantidade de mensagens analisadas, horários e registros de pendência marcada ou bloqueada. Não salva o texto das mensagens nesse cache. Registros com mais de sete dias são removidos quando o módulo carrega o armazenamento. Desativar o módulo não apaga o cache nem desfaz pendências já marcadas.
 
-A função **Copiar diagnóstico** só é executada quando o usuário a aciona. O texto copiado informa configurações, versões, horários, contagens e resultados de entrega, sem incluir nomes de clientes, protocolos ou conteúdo de conversas. O envio desse diagnóstico a outra pessoa depende de uma ação do usuário.
-
 ## Acesso a páginas e compartilhamento
 
 O monitoramento da fila e das mensagens funciona nas páginas `suporte.ixcsoft.com.br` e `opasuiteapi.ixcsoft.com.br`. Na interface nova, a extensão observa a conexão que o próprio Opa abriu e repete consultas de leitura da fila já usadas pela página para verificar mudanças. A comunicação com o Opa segue a sessão do usuário nesse serviço.
@@ -34,7 +32,7 @@ O Opa!Notify não envia os dados acessados a servidores próprios do desenvolved
 
 ## Controles do usuário
 
-No popup da extensão, o usuário pode desativar o Opa!Notify, os avisos visuais, os cartões em outras abas, as notificações do sistema, os avisos de novas mensagens e o agrupamento por etiqueta. A seção **Termostato** permite desativar o módulo, o humor e a pendência automática separadamente. Desativar Opa!Notify também pausa esses recursos; uma ação já enviada ao Opa pode concluir sua confirmação. A opção **Refazer leitura inicial** substitui a base de comparação da fila, sem apagar o histórico dos cinco últimos recebimentos.
+No popup da extensão, o usuário pode desativar o Opa!Notify, os avisos visuais, os cartões em outras abas, as notificações do sistema, os avisos de novas mensagens e o agrupamento por etiqueta. A seção **Termostato** permite desativar o módulo, o humor e a pendência automática separadamente. Desativar Opa!Notify também pausa esses recursos; uma ação já enviada ao Opa pode concluir sua confirmação.
 
 ## Contato e alterações
 

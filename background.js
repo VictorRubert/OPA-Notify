@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '1.6.9';
+const EXTENSION_VERSION = '1.6.10';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -141,6 +141,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'RESET_BASELINE') {
     resetBaseline()
       .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'TEST_COMMAND') {
+    runTestCommand(message.command)
+      .then(sendResponse)
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
@@ -654,6 +661,24 @@ function delay(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
+function parseTestCommand(command) {
+  if (typeof command !== 'string' || command.length > 40 || !/^test(?:\s+[123])+$/i.test(command.trim())) return null;
+  return [...new Set(command.trim().split(/\s+/).slice(1))].map(number => ({1:'received',2:'finished',3:'message'})[number]);
+}
+
+async function runTestCommand(command) {
+  const events = parseTestCommand(command);
+  if (!events) return { success: false, error: 'Comando inválido.' };
+  const errors = [];
+  for (const event of events) {
+    try {
+      const result = await testAlert(event);
+      if (!result.success) errors.push(result.error);
+    } catch (error) { errors.push(error.message); }
+  }
+  return errors.length ? { success: false, error: [...new Set(errors)].join(' ') } : { success: true };
+}
+
 async function testAlert(eventType) {
   // Resolve the active tab directly rather than hiding URL/permission failures
   // behind the native URL filter. Prefer it when both Opa versions are open.
@@ -676,7 +701,8 @@ async function testAlert(eventType) {
   const sample = {
     id: '',
     protocol: 'OPA20260000000',
-    company: 'EMPRESA DE TESTE'
+    company: 'EMPRESA DE TESTE',
+    ...(eventType === 'message' ? { messageText: 'Esta é uma mensagem de teste.' } : {})
   };
 
   await announceAttendance(sample, { tab }, settings, eventType, true);

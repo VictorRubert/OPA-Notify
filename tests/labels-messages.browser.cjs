@@ -322,7 +322,7 @@ async function popup(browser) {
         get: async () => JSON.parse(localStorage.settings || '{}'),
         set: async values => { localStorage.settings = JSON.stringify({...JSON.parse(localStorage.settings || '{}'), ...values}); }
       }},
-      runtime: {sendMessage:async () => ({success:true,history:[]})}
+      runtime: {sendMessage:async message => { (window.commands ||= []).push(message); return {success:true,history:[]}; }}
     };
   });
   await page.route('https://popup.example/**', route => {
@@ -336,7 +336,14 @@ async function popup(browser) {
     assert.equal(await page.locator('#'+id).count(),0);
   }
   assert.equal(await page.getByRole('heading',{name:'Manutenção'}).count(),1);
-  assert.equal(await page.locator('#clearHighlight').count(),1);
+  for (const id of ['clearHighlight','resetBaseline','copyDiagnostics']) assert.equal(await page.locator('#'+id).count(),0);
+  assert.equal(await page.locator('#maintenance input').count(),1);
+  assert.equal(await page.locator('#maintenance button').count(),1);
+  assert.equal(await page.locator('#maintenanceCommand').getAttribute('placeholder'),null);
+  await page.locator('#maintenanceCommand').fill('test 1 2 3');
+  await page.locator('#maintenanceOk').click();
+  assert.equal(await page.evaluate(()=>commands.find(m=>m.type==='TEST_COMMAND').command),'test 1 2 3');
+  assert.equal(await page.locator('#maintenanceCommand').inputValue(),'');
   assert.equal(await page.locator('.section-nav a').count(),6);
   const sectionVisible = selector => page.locator(selector).evaluate(el => {
     const bounds = el.getBoundingClientRect();

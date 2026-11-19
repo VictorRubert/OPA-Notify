@@ -52,10 +52,9 @@ function cacheElements() {
     'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
     'volume', 'volumeValue', 'soundPreset', 'toastDuration', 'toastDurationValue', 'toastPosition',
     'customSoundArea', 'customSoundFile', 'customSoundName',
-    'copyDiagnostics', 'resetBaseline',
+    'maintenanceForm', 'maintenanceCommand', 'maintenanceOk',
     'feedback', 'currentCount', 'statusText', 'lastCheck', 'statusDot',
     'attendanceHistory', 'historyEmpty', 'historyCount',
-    'clearHighlight',
     'groupByTag', 'notifyClientMessages', 'messageScope', 'tagMode', 'groupOptions',
     'scopeArea', 'priorityArea', 'groupTags', 'priorityTags', 'groupTagForm',
     'priorityTagForm', 'groupTagName', 'priorityTagName'
@@ -106,9 +105,7 @@ function bindEvents() {
   });
   elements.volume.addEventListener('change', saveSimpleSettings);
   elements.customSoundFile.addEventListener('change', handleCustomSoundFile);
-  elements.copyDiagnostics.addEventListener('click', copyDiagnostics);
-  elements.clearHighlight.addEventListener('click', clearProtocolHighlight);
-  elements.resetBaseline.addEventListener('click', resetBaseline);
+  elements.maintenanceForm.addEventListener('submit', runMaintenanceCommand);
 }
 
 async function loadSettings() {
@@ -307,50 +304,19 @@ function readFileAsDataUrl(file) {
   });
 }
 
-async function clearProtocolHighlight() {
-  setBusy(elements.clearHighlight, true, 'Removendo...');
-
+async function runMaintenanceCommand(event) {
+  event.preventDefault();
+  if (elements.maintenanceOk.disabled) return;
+  elements.maintenanceOk.disabled = true;
   try {
-    const response = await chrome.runtime.sendMessage({
-      type: 'CLEAR_HIGHLIGHTED_ATTENDANCE'
-    });
-
-    if (!response?.success) {
-      throw new Error(response?.error || 'Não foi possível remover o destaque roxo.');
-    }
-
-    const removedProtocol = String(response.removedProtocol || '').trim();
-    showFeedback(
-      removedProtocol
-        ? `Destaque roxo de ${removedProtocol} removido.`
-        : 'Nenhum atendimento estava marcado.'
-    );
+    const result = await chrome.runtime.sendMessage({ type: 'TEST_COMMAND', command: elements.maintenanceCommand.value });
+    if (!result?.success) throw new Error(result?.error || 'Falha ao executar.');
+    elements.maintenanceCommand.value = '';
+    showFeedback('OK');
   } catch (error) {
     showFeedback(error.message, true);
   } finally {
-    elements.clearHighlight.textContent = 'Remover marcação atual';
-    await updateStatus().catch(() => {
-      elements.clearHighlight.disabled = false;
-    });
-  }
-}
-
-async function resetBaseline() {
-  const confirmed = confirm(
-    'Refazer a leitura inicial? Os atendimentos atuais serão considerados conhecidos e não gerarão aviso.'
-  );
-  if (!confirmed) return;
-
-  setBusy(elements.resetBaseline, true, 'Refazendo leitura...');
-  try {
-    const response = await chrome.runtime.sendMessage({ type: 'RESET_BASELINE' });
-    if (!response?.success) throw new Error(response?.error || 'Falha ao refazer a leitura.');
-    showFeedback('Leitura inicial redefinida.');
-    setTimeout(updateStatus, 900);
-  } catch (error) {
-    showFeedback(error.message, true);
-  } finally {
-    setBusy(elements.resetBaseline, false, 'Refazer leitura inicial');
+    elements.maintenanceOk.disabled = false;
   }
 }
 
@@ -364,11 +330,6 @@ async function updateStatus() {
 
   elements.currentCount.textContent = response.currentCount ?? '—';
   renderHistory(response.history);
-  elements.clearHighlight.disabled = !response.highlightedProtocol;
-  elements.clearHighlight.title = response.highlightedProtocol
-    ? `Remover marcação de ${response.highlightedProtocol}`
-    : 'Nenhum atendimento está marcado';
-
   if (!elements.enabled.checked) {
     elements.statusDot.className = 'status-dot off';
     elements.statusText.textContent = 'Monitoramento desativado';
@@ -500,13 +461,4 @@ function formatHistoryDate(timestamp) {
     day: '2-digit',
     month: '2-digit'
   })}, ${time}`;
-}
-
-async function copyDiagnostics() {
-  try {
-    const response = await chrome.runtime.sendMessage({ type: 'GET_DIAGNOSTICS' });
-    if (!response?.success) throw new Error(response?.error || 'Falha ao obter diagnóstico.');
-    await navigator.clipboard.writeText(JSON.stringify(response, null, 2));
-    showFeedback('Diagnóstico copiado, sem mensagens ou dados dos clientes.');
-  } catch (error) { showFeedback(error.message, true); }
 }
