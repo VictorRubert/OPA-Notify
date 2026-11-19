@@ -305,6 +305,12 @@ async function statusOrder(browser) {
       .map(head=>head.querySelector('.opa-groups-name').textContent);
   });
   assert.deepEqual(order,['AJUDA AGENTE SMITH','FINALIZADO AGENTE SMITH','ajudando Agente Smith','PAUSA AGENTE SMITH','ASSUMIDO AGENTE SMITH','Sem grupo']);
+  await page.locator('main').evaluate(el=>el.style.backgroundColor='#f7f8fa');
+  await page.waitForFunction(()=>document.querySelector('main').dataset.opaGroupsTheme==='light');
+  assert.equal(await page.locator('.opa-groups-head').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(241, 243, 246)');
+  await page.locator('main').evaluate(el=>el.style.backgroundColor='#202536');
+  await page.waitForFunction(()=>document.querySelector('main').dataset.opaGroupsTheme==='dark');
+  assert.equal(await page.locator('.opa-groups-head').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(41, 49, 62)');
   await page.close();
 }
 

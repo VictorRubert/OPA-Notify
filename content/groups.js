@@ -16,6 +16,12 @@
     .opa-groups-count { flex:none;min-width:19px;text-align:center;padding:2px 6px;border-radius:5px;background:#5d422b;font-size:10px;font-variant-numeric:tabular-nums }
     [data-subgroup] > .opa-groups-count { background:#344254 }
     .opa-groups-dot { color:#ffd08b;font-size:10px }
+    [data-opa-groups-theme="light"] .opa-groups-head { background:#f1f3f6;color:#854500;border-color:#d4dbe5 }
+    [data-opa-groups-theme="light"] .opa-groups-head[data-subgroup] { background:#e8edf4;color:#35465f;border-color:#cbd5e1 }
+    [data-opa-groups-theme="light"] .opa-groups-count { background:#f8ddb4;color:#704000 }
+    [data-opa-groups-theme="light"] [data-subgroup] > .opa-groups-count { background:#d5dfec;color:#35465f }
+    [data-opa-groups-theme="light"] .opa-groups-dot { color:#935000 }
+    [data-opa-groups-theme="light"] .opa-groups-head:hover { filter:brightness(.97) }
     .opa-groups-viewport { overflow-y:auto!important;overflow-anchor:none;min-height:0 }
     .opa-groups-clip { height:var(--opa-layout-height,auto)!important;overflow:clip!important;flex:none!important }
     .opa-groups-expanded { flex:none!important;height:var(--opa-native-height)!important;max-height:none!important;overflow:visible!important }
@@ -49,6 +55,8 @@
 
   class Groups {
     constructor() {
+      this.themeMedia = matchMedia('(prefers-color-scheme: dark)');
+      this.themeMedia.addEventListener('change', () => this.updateTheme());
       this.collapsed = new Set();
       this.headers = [];
       this.items = [];
@@ -56,6 +64,8 @@
     }
 
     clearLayout() {
+      this.themeObserver?.disconnect();
+      this.root?.removeAttribute('data-opa-groups-theme');
       this.resize?.disconnect();
       this.extent?.disconnect();
       for (const node of this.headers) node.remove();
@@ -104,6 +114,11 @@
         this.root = root;
         if (modern) this.scroller = root.closest('.sidebar-scroll, .overflow-auto') || root;
       }
+      this.updateTheme();
+      if (!this.themeObserver) this.themeObserver = new MutationObserver(records => {
+        if (records.some(record => record.target.contains(this.root))) this.updateTheme();
+      });
+      this.themeObserver.observe(document.documentElement, {attributes:true,subtree:true,attributeFilter:['class','style','data-theme']});
       const signature = JSON.stringify([settings.tagMode, settings.groupTags, settings.priorityTags,
         rows.map(({ id, tags, pinned, unread }) => [id, tags, pinned, unread])]);
       const sameRows = this.signature === signature && this.items.every((item,i) => item.node === rows[i].node);
@@ -117,6 +132,19 @@
       this.settings = settings;
       this.signature = signature;
       this.render();
+    }
+
+    updateTheme() {
+      if (!this.root) return;
+      // Follow the actual Opa surface, including its explicit theme override.
+      let light = !matchMedia('(prefers-color-scheme: dark)').matches;
+      for (let node = this.root; node; node = node.parentElement) {
+        const channels = getComputedStyle(node).backgroundColor.match(/[\d.]+/g)?.map(Number);
+        if (!channels || channels.length < 3 || (channels.length > 3 && channels[3] < .9)) continue;
+        light = (channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722) > 150;
+        break;
+      }
+      this.root.dataset.opaGroupsTheme = light ? 'light' : 'dark';
     }
 
     groupVirtualRows() {
