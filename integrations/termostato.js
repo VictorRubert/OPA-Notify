@@ -5,6 +5,11 @@
   if (!t || t.notifyIntegration) return;
   t.notifyIntegration = true;
   t.VERSAO = '2.22.0';
+  const renderMood = t.lista.renderTodos;
+  t.lista.renderTodos = () => {
+    renderMood();
+    for (const card of t.dom.getListCards()) globalThis.OpaNotifyPlaceInactivity?.(card);
+  };
   const defaults = {
     enabled: true,
     termostatoEnabled: true,

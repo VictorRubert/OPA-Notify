@@ -24,7 +24,7 @@ const html = `<main style="background:#f7f8fa">
    await page.addInitScript(() => {
     window.saved = {termostatoPendingEnabled:false,groupByTag:true,motivoChargeEnabled:false};
     window.changes=[];window.runtimeListeners=[];
-    window.chrome={runtime:{id:'notify-test',getManifest:()=>({version:'1.6.8'}),onMessage:{addListener:f=>runtimeListeners.push(f)},sendMessage:async()=>({success:true})},storage:{local:{
+    window.chrome={runtime:{id:'notify-test',getManifest:()=>({version:'1.6.9'}),onMessage:{addListener:f=>runtimeListeners.push(f)},sendMessage:async()=>({success:true})},storage:{local:{
      get:(keys,cb)=>{const result=typeof keys==='string'?{[keys]:saved[keys]}:{...saved};if(cb){cb(result);return;}return Promise.resolve(result);},
      set:async values=>{const delta={};for(const [k,v] of Object.entries(values)){delta[k]={newValue:v};saved[k]=v;}changes.forEach(f=>f(delta,'local'));}
     },onChanged:{addListener:f=>changes.push(f)}}};
@@ -45,6 +45,12 @@ const html = `<main style="background:#f7f8fa">
     for(const js of entry.js) await page.addScriptTag({path:path.join(root,js)});
    }
    await page.waitForSelector('.ixc-selo');
+   await page.evaluate(()=>window.postMessage({source:'opa-notify-queue-v1',kind:'page',view:'Meus atendimentos',page:1,hasMore:false,items:[{id:'chat1',protocol:'OPA123456',company:'Empresa teste',tags:['AJUDA AGENTE SMITH'],activity:{at:Date.now()-14*60000,waitingForCustomer:true}}]},location.origin));
+   await page.waitForSelector('.opa-notify-client-status .opa-notify-inactivity-tag');
+   const moodBox = await page.locator('.ixc-selo').boundingBox();
+   const inactivityBox = await page.locator('.opa-notify-inactivity-tag').boundingBox();
+   assert(inactivityBox.x >= moodBox.x + moodBox.width, 'inactivity must be to the right of emoji');
+   assert(Math.abs((inactivityBox.y+inactivityBox.height/2)-(moodBox.y+moodBox.height/2)) < 2, 'same row');
    assert.equal(await page.evaluate(()=>IXCOpa.VERSAO),'2.22.0');
    assert.equal(await page.evaluate(()=>menuOpens),0,'saved pending=false must prevent startup action');
    assert.equal(await page.locator('.ixc-selo').getAttribute('data-categoria'),'satisfeito');
@@ -58,6 +64,7 @@ const html = `<main style="background:#f7f8fa">
    assert.match(await page.locator('.ixc-selo__tooltip').innerText(),/2\.22\.0/);
    await page.evaluate(()=>chrome.storage.local.set({termostatoHumorEnabled:false}));
    assert.equal(await page.locator('.ixc-selo').count(),0);
+   assert.equal(await page.locator('.opa-notify-inactivity-tag').count(),1);
    await page.evaluate(()=>chrome.storage.local.set({termostatoHumorEnabled:true}));
    await page.waitForSelector('.ixc-selo');
    await page.evaluate(()=>chrome.storage.local.set({termostatoPendingEnabled:true}));

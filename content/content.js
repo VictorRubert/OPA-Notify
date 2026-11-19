@@ -593,6 +593,26 @@
     return `${days}d${hours % 24 ? ` ${hours % 24}h` : ''}`;
   }
 
+  // Shared with the Notify-owned Termostato adapter; original vendor files stay intact.
+  function placeInactivityBesideMood(card) {
+    const row = card.querySelector(`.${INACTIVITY_ROW_CLASS}`);
+    const mood = card.querySelector('.ixc-selo');
+    if (!row || !mood) return;
+    let line = card.querySelector('.opa-notify-client-status');
+    if (!line) {
+      line = document.createElement('div');
+      line.className = 'opa-notify-client-status';
+      mood.before(line);
+    }
+    if (mood.parentElement !== line) line.prepend(mood);
+    if (row.parentElement !== line) {
+      const previous = row.parentElement;
+      line.append(row);
+      if (previous?.classList.contains(GENERATED_TAGS_CLASS) && !previous.children.length) previous.remove();
+    }
+  }
+  globalThis.OpaNotifyPlaceInactivity = placeInactivityBesideMood;
+
   function updateInactivityLabel(card, activity) {
     let row = card.querySelector(`.${INACTIVITY_ROW_CLASS}`);
     const at = activity?.at;
@@ -602,7 +622,7 @@
       if (parent?.classList.contains(GENERATED_TAGS_CLASS) && !parent.children.length) parent.remove();
       return;
     }
-    const tags = getOrCreateTagsContainer(card);
+    const tags = row?.parentElement || getOrCreateTagsContainer(card);
     if (!tags) return;
     if (!row) {
       row = document.createElement('div');
@@ -611,7 +631,8 @@
       tag.className = INACTIVITY_TAG_CLASS;
       row.append(tag);
     }
-    if (row.parentElement !== tags) tags.append(row);
+    if (!row.parentElement) tags.append(row);
+    placeInactivityBesideMood(card);
     const tag = row.firstElementChild;
     const waiting = activity.waitingForCustomer === true;
     const label = `${waiting ? 'Aguardando cliente' : 'Sem resposta'} há ${inactivityDuration(at)}`;
@@ -846,7 +867,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '1.6.8' });
+      sendResponse({ success: true, ready: true, version: '1.6.9' });
       return false;
     }
 
@@ -870,7 +891,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '1.6.8', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '1.6.9', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 
@@ -1048,6 +1069,24 @@
         width: 100% !important;
         margin-top: 3px !important;
         pointer-events: none !important;
+      }
+
+      .opa-notify-client-status {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+      }
+      .opa-notify-client-status > .ixc-selo {
+        flex: 0 0 auto !important;
+        align-self: center !important;
+      }
+      .opa-notify-client-status > .${INACTIVITY_ROW_CLASS} {
+        flex: 0 1 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        margin-top: 0 !important;
       }
 
       .${INACTIVITY_TAG_CLASS} {
