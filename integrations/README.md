@@ -15,7 +15,7 @@ da raiz da Notify. Não instale o manifest interno junto com a Notify.
 - `termostato-originals.json`: versão e SHA-256 de cada arquivo original do ZIP.
 - `../popup/` e `../background.js`: controles e valores iniciais das preferências.
 
-Os três controles começam ligados. `enabled` (Ativar Opa!Notify) também pausa
+Os três controles começam ligados. `enabled` (Ativar Termofy) também pausa
 o módulo. Desativar não desfaz pendências já marcadas nem apaga o cache.
 Uma ação já enviada ao Opa pode terminar sua confirmação após desativar.
 O Termostato só reconhece os seletores da interface nova, nos dois domínios da

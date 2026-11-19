@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Opa!Notify",
-  "short_name": "Opa!Notify",
-  "version": "1.6.10",
+  "name": "Termofy",
+  "short_name": "Termofy",
+  "version": "1.6.11",
   "description": "Alertas de atendimentos e mensagens de clientes, agrupamento por etiqueta e destaques na fila do Opa! Suite.",
   "minimum_chrome_version": "111",
   "permissions": [
@@ -22,7 +22,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "Opa!Notify"
+    "default_title": "Termofy"
   },
   "content_scripts": [
     {

@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Opa!Notify</title>
+  <title>Termofy</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header class="header">
     <div class="logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M12 22a2.4 2.4 0 0 0 2.35-2h-4.7A2.4 2.4 0 0 0 12 22Zm7-5.2-1.7-2.1V9a5.32 5.32 0 0 0-4.1-5.17V3a1.2 1.2 0 1 0-2.4 0v.83A5.32 5.32 0 0 0 6.7 9v5.7L5 16.8V18h14v-1.2Z"/></svg>
+      <img src="../icons/termofy.svg" alt="">
     </div>
     <div>
-      <h1>Opa!Notify</h1>
+      <h1>Termofy</h1>
       <p>Alertas de atendimentos</p>
     </div>
     <span class="status-dot" id="statusDot" title="Status"></span>
@@ -54,7 +54,7 @@
 
       <label class="toggle-row">
         <span>
-          <strong>Ativar Opa!Notify</strong>
+          <strong>Ativar Termofy</strong>
           <small>Compara os protocolos de “Meus atendimentos”.</small>
         </span>
         <input type="checkbox" id="enabled">
@@ -246,7 +246,7 @@
     <section class="card" id="termostato">
       <h2>Termostato</h2>
       <label class="toggle-row">
-        <span><strong>Ativar Termostato</strong><small>Humor e pendência externa na interface nova do Opa. Requer Opa!Notify ativo.</small></span>
+        <span><strong>Ativar Termostato</strong><small>Humor e pendência externa na interface nova do Opa. Requer Termofy ativo.</small></span>
         <input type="checkbox" id="termostatoEnabled"><span class="switch" aria-hidden="true"></span>
       </label>
       <label class="toggle-row">
@@ -271,7 +271,7 @@
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Opa!Notify 1.6.10</footer>
+  <footer>Termofy 1.6.11</footer>
   <script src="../content/tag-settings.js"></script>
   <script src="popup.js"></script>
 </body>

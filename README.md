@@ -1,4 +1,4 @@
-# Opa!Notify v1.6.10
+# Termofy v1.6.11
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -44,7 +44,7 @@ O popup reúne o estado da fila, os cinco atendimentos recentes e atalhos para N
 - **Agrupar por etiqueta** começa desligado. Ao ativar, **Somente as listadas** já vem preenchido. A fila usa as etiquetas **AGENTE SMITH** na ordem **AJUDA → FINALIZADO → AJUDANDO → PAUSA → ASSUMIDO**, de cima para baixo. Os demais atendimentos ficam em **Sem grupo**. Você pode editar as listas e a ordem no popup.
 - **Visual:** destaque roxo, tipo de preenchimento e controles de destaque, pisca e pop-up do motivo.
 - **Som:** escolha do áudio, arquivo personalizado e volume.
-- **Termostato:** humor do cliente e pendência externa automática na interface nova. Os dois recursos começam ligados e podem ser desativados separadamente. Desativar Opa!Notify também pausa o Termostato. O humor analisa as cinco últimas mensagens carregadas da conversa aberta; os outros cartões mostram o último resultado salvo. A pendência segue as regras originais de tempo (5 minutos a 8 horas), etiquetas e estado manual. Sem “Nesta fila”, utiliza a abertura como referência.
+- **Termostato:** humor do cliente e pendência externa automática na interface nova. Os dois recursos começam ligados e podem ser desativados separadamente. Desativar Termofy também pausa o Termostato. O humor analisa as cinco últimas mensagens carregadas da conversa aberta; os outros cartões mostram o último resultado salvo. A pendência segue as regras originais de tempo (5 minutos a 8 horas), etiquetas e estado manual. Sem “Nesta fila”, utiliza a abertura como referência.
 - **Manutenção:** campo de uso interno.
 
 ## Permissões e limites

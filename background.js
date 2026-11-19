@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '1.6.10';
+const EXTENSION_VERSION = '1.6.11';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -557,7 +557,7 @@ async function getStatus() {
   const snapshot = normalizeAttendances(stored.attendanceSnapshot);
 
   return {
-    extension: 'Opa!Notify',
+    extension: 'Termofy',
     version: EXTENSION_VERSION,
     currentCount: Number.isFinite(stored.lastDetectedCount)
       ? stored.lastDetectedCount
@@ -693,7 +693,7 @@ async function testAlert(eventType) {
     try { host = new URL(activeTabs[0]?.url).hostname; } catch {}
     return {
       success: false,
-      error: `Opa!Notify ${EXTENSION_VERSION}: nenhuma aba do Opa encontrada (aba atual: ${host}). Recarregue a extensão em chrome://extensions e depois recarregue o Opa.`
+      error: `Termofy ${EXTENSION_VERSION}: nenhuma aba do Opa encontrada (aba atual: ${host}). Recarregue a extensão em chrome://extensions e depois recarregue o Opa.`
     };
   }
 

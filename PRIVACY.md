@@ -1,8 +1,8 @@
-# Política de Privacidade do Opa!Notify
+# Política de Privacidade do Termofy
 
 Última atualização em 19 de novembro de 2026.
 
-O Opa!Notify é uma extensão para acompanhar a fila **Meus atendimentos** no Opa! Suite. Esta política descreve os dados acessados pela extensão, onde ficam armazenados e como são usados.
+O Termofy é uma extensão para acompanhar a fila **Meus atendimentos** no Opa! Suite. Esta política descreve os dados acessados pela extensão, onde ficam armazenados e como são usados.
 
 ## Dados acessados e finalidade
 
@@ -28,12 +28,12 @@ O monitoramento da fila e das mensagens funciona nas páginas `suporte.ixcsoft.c
 
 A permissão para acessar páginas HTTP e HTTPS permite apresentar os cartões de aviso em outras abas, quando essa opção está ativada. Nelas, a extensão usa o endereço da aba para entregar o cartão e abrir a aba correta do Opa ao clicar. O cartão pode mostrar nome da empresa e texto de mensagem na tela dessas abas. A extensão não lê o conteúdo das páginas de outros sites para monitorar atendimentos.
 
-O Opa!Notify não envia os dados acessados a servidores próprios do desenvolvedor, não usa serviços de análise de comportamento, não exibe publicidade e não vende dados. O Opa! Suite e o Chrome tratam os dados sob suas próprias políticas e configurações.
+O Termofy não envia os dados acessados a servidores próprios do desenvolvedor, não usa serviços de análise de comportamento, não exibe publicidade e não vende dados. O Opa! Suite e o Chrome tratam os dados sob suas próprias políticas e configurações.
 
 ## Controles do usuário
 
-No popup da extensão, o usuário pode desativar o Opa!Notify, os avisos visuais, os cartões em outras abas, as notificações do sistema, os avisos de novas mensagens e o agrupamento por etiqueta. A seção **Termostato** permite desativar o módulo, o humor e a pendência automática separadamente. Desativar Opa!Notify também pausa esses recursos; uma ação já enviada ao Opa pode concluir sua confirmação.
+No popup da extensão, o usuário pode desativar o Termofy, os avisos visuais, os cartões em outras abas, as notificações do sistema, os avisos de novas mensagens e o agrupamento por etiqueta. A seção **Termostato** permite desativar o módulo, o humor e a pendência automática separadamente. Desativar Termofy também pausa esses recursos; uma ação já enviada ao Opa pode concluir sua confirmação.
 
 ## Contato e alterações
 
-Esta política pode ser atualizada quando as funcionalidades ou o tratamento de dados mudarem. Para dúvidas ou solicitações sobre o Opa!Notify, abra uma solicitação no repositório do projeto. [Contato pelo GitHub Issues](https://github.com/VictorRubert/OPA-Notify/issues)
+Esta política pode ser atualizada quando as funcionalidades ou o tratamento de dados mudarem. Para dúvidas ou solicitações sobre o Termofy, abra uma solicitação no repositório do projeto. [Contato pelo GitHub Issues](https://github.com/VictorRubert/OPA-Notify/issues)
