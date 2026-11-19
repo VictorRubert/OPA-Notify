@@ -37,10 +37,45 @@ window.addEventListener('DOMContentLoaded', () => {
 
 async function initialize() {
   cacheElements();
+  setupTabs();
   bindEvents();
   await loadSettings();
   await updateStatus();
   statusTimer = setInterval(updateStatus, 3000);
+}
+
+function setupTabs() {
+  const tabs = [...document.querySelectorAll('.section-nav [role="tab"]')];
+  const main = document.querySelector('main');
+  const select = id => {
+    if (!tabs.some(tab => tab.getAttribute('aria-controls') === id)) id = 'notifications';
+    for (const tab of tabs) {
+      const active = tab.getAttribute('aria-controls') === id;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
+      if (active) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    main.scrollTop = 0;
+  };
+  for (const tab of tabs) {
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      const id = tab.getAttribute('aria-controls');
+      history.replaceState(null, '', `#${id}`);
+      select(id);
+    });
+    tab.addEventListener('keydown', event => {
+      const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+      if (!delta) return;
+      event.preventDefault();
+      const next = tabs[(tabs.indexOf(tab) + delta + tabs.length) % tabs.length];
+      next.click();
+      next.focus();
+    });
+  }
+  window.addEventListener('hashchange', () => select(location.hash.slice(1)));
+  select(location.hash.slice(1));
 }
 
 function cacheElements() {

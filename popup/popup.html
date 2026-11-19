@@ -9,7 +9,7 @@
 <body>
   <header class="header">
     <div class="logo" aria-hidden="true">
-      <img src="../icons/termofy.svg" alt="">
+      <img src="../icons/termofy-mark.svg" alt="">
     </div>
     <div>
       <h1>Termofy</h1>
@@ -18,16 +18,17 @@
     <span class="status-dot" id="statusDot" title="Status"></span>
   </header>
 
-  <nav class="section-nav" aria-label="Seções da extensão">
-    <a href="#notifications">Notificações</a>
-    <a href="#labels">Etiquetas</a>
-    <a href="#visual">Visual</a>
-    <a href="#sound">Som</a>
-    <a href="#termostato">Termostato</a>
-    <a href="#maintenance">Manutenção</a>
+  <nav class="section-nav" role="tablist" aria-label="Configurações">
+    <a href="#notifications" id="tab-notifications" role="tab" aria-controls="notifications" aria-selected="true">Notificações</a>
+    <a href="#labels" id="tab-labels" role="tab" aria-controls="labels" aria-selected="false">Etiquetas</a>
+    <a href="#visual" id="tab-visual" role="tab" aria-controls="visual" aria-selected="false">Visual</a>
+    <a href="#sound" id="tab-sound" role="tab" aria-controls="sound" aria-selected="false">Som</a>
+    <a href="#termostato" id="tab-termostato" role="tab" aria-controls="termostato" aria-selected="false">Termostato</a>
+    <a href="#maintenance" id="tab-maintenance" role="tab" aria-controls="maintenance" aria-selected="false">Manutenção</a>
   </nav>
 
   <main>
+    <section class="tab-panel" id="notifications" role="tabpanel" aria-labelledby="tab-notifications">
     <section class="status-card">
       <div>
         <span class="status-label">Atendimentos identificados</span>
@@ -49,7 +50,7 @@
       </div>
     </section>
 
-    <section class="card" id="notifications">
+      <div class="card">
       <h2>Notificações</h2>
 
       <label class="toggle-row">
@@ -120,9 +121,11 @@
           <option value="priority">Somente etiquetas prioritárias</option>
         </select>
       </label>
+      </div>
     </section>
 
-    <section class="card" id="labels">
+    <section class="tab-panel" id="labels" role="tabpanel" aria-labelledby="tab-labels" hidden>
+      <div class="card">
       <h2>Etiquetas</h2>
       <label class="toggle-row">
         <span><strong>Agrupar por etiqueta</strong><small>Organiza “Meus atendimentos” em grupos recolhíveis.</small></span>
@@ -151,9 +154,11 @@
         </form>
         <ul class="tag-list" id="priorityTags"></ul>
       </div>
+      </div>
     </section>
 
-    <section class="card" id="visual">
+    <section class="tab-panel" id="visual" role="tabpanel" aria-labelledby="tab-visual" hidden>
+      <div class="card">
       <h2>Visual</h2>
 
       <label class="toggle-row">
@@ -177,9 +182,11 @@
         </select>
       </label>
 
+      </div>
     </section>
 
-    <section class="card" id="sound">
+    <section class="tab-panel" id="sound" role="tabpanel" aria-labelledby="tab-sound" hidden>
+      <div class="card">
       <h2>Som</h2>
 
       <label class="toggle-row">
@@ -215,9 +222,11 @@
         <output id="volumeValue">80%</output>
       </label>
 
+      </div>
     </section>
 
-    <section class="card" id="termostato">
+    <section class="tab-panel" id="termostato" role="tabpanel" aria-labelledby="tab-termostato" hidden>
+      <div class="card">
       <h2>Termostato</h2>
       <label class="toggle-row">
         <span><strong>Ativar Termostato</strong><small>Humor e pendência externa na interface nova do Opa. Requer Termofy ativo.</small></span>
@@ -232,20 +241,23 @@
         <input type="checkbox" id="termostatoPendingEnabled"><span class="switch" aria-hidden="true"></span>
       </label>
       <p class="hint">Termostato 2.22.0 integrado. Desative a extensão Termostato separada para evitar execução duplicada.</p>
+      </div>
     </section>
 
-    <section class="card" id="maintenance">
+    <section class="tab-panel" id="maintenance" role="tabpanel" aria-labelledby="tab-maintenance" hidden>
+      <div class="card">
       <h2>Manutenção</h2>
       <form class="tag-entry" id="maintenanceForm">
         <input type="text" id="maintenanceCommand" aria-label="Comando" autocomplete="off" spellcheck="false" maxlength="40">
         <button type="submit" id="maintenanceOk">OK</button>
       </form>
+      </div>
     </section>
 
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Termofy 2.0.3</footer>
+  <footer>Termofy 2.0.4</footer>
   <script src="../content/tag-settings.js"></script>
   <script src="popup.js"></script>
 </body>

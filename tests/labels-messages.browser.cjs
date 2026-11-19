@@ -335,7 +335,11 @@ async function popup(browser) {
   for (const id of ['testSound','testHighlight','testReceivedAlert','testFinishedAlert','highlightProtocol']) {
     assert.equal(await page.locator('#'+id).count(),0);
   }
+  assert.equal(await page.locator('#notifications').isVisible(),true);
+  assert.equal(await page.locator('#maintenance').isVisible(),false);
+  await page.locator('#tab-maintenance').click();
   assert.equal(await page.getByRole('heading',{name:'Manutenção'}).count(),1);
+  assert.equal(await page.locator('#notifications').isVisible(),false);
   for (const id of ['motivoHighlightEnabled','motivoBlinkEnabled','motivoChargeEnabled']) assert.equal(await page.locator('#'+id).count(),0);
   for (const id of ['clearHighlight','resetBaseline','copyDiagnostics']) assert.equal(await page.locator('#'+id).count(),0);
   assert.equal(await page.locator('#maintenance input').count(),1);
@@ -374,8 +378,10 @@ async function popup(browser) {
   assert.deepEqual(await page.locator('#groupTags li span').allTextContents(),selected);
   assert.equal(await page.locator('#tagMode').inputValue(),'include');
   assert.equal(await page.locator('#notifyClientMessages').isChecked(),true);
+  await page.locator('#tab-notifications').click();
   assert.equal(await page.locator('#messageScope').inputValue(),'all');
   await page.selectOption('#messageScope','priority');
+  await page.locator('#tab-labels').click();
   assert(await page.locator('#priorityArea').isVisible());
   for (const tag of ['A','VIP']) {
     await page.fill('#priorityTagName',tag);
@@ -392,7 +398,9 @@ async function popup(browser) {
   await page.getByRole('button',{name:'Remover A',exact:true}).click();
   await page.getByText('Agrupar por etiqueta',{exact:true}).click();
   assert(await page.locator('#priorityArea').isVisible());
+  await page.locator('#tab-notifications').click();
   await page.getByText('Avisar novas mensagens do cliente',{exact:true}).click();
+  await page.locator('#tab-labels').click();
   assert.equal(await page.locator('#priorityArea').isVisible(),false);
   assert.equal(await page.locator('#groupOptions').isVisible(),false);
   await page.reload();

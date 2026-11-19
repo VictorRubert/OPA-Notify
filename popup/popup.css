@@ -48,11 +48,9 @@ button, select, input[type="range"] { cursor: pointer; }
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  color: var(--brand-ink);
-  background: var(--brand);
-  border-radius: 12px;
+  background: transparent;
 }
-.logo img { width: 28px; height: 28px; display: block; border-radius: 7px; }
+.logo img { width: 32px; height: 32px; display: block; }
 .header h1 { margin: 0; font-size: 16px; line-height: 1.2; letter-spacing: -.01em; }
 .header p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
 .status-dot {
@@ -88,12 +86,7 @@ button, select, input[type="range"] { cursor: pointer; }
   font-weight: 650;
 }
 .section-nav a:hover, .section-nav a:focus-visible { color: var(--text); background: var(--surface-raised); }
-body:has(#notifications:target) .section-nav a[href="#notifications"],
-body:has(#labels:target) .section-nav a[href="#labels"],
-body:has(#visual:target) .section-nav a[href="#visual"],
-body:has(#sound:target) .section-nav a[href="#sound"],
-body:has(#termostato:target) .section-nav a[href="#termostato"],
-body:has(#maintenance:target) .section-nav a[href="#maintenance"] {
+.section-nav a[aria-selected="true"] {
   color: var(--text);
   background: var(--surface-raised);
 }
@@ -313,3 +306,7 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   .switch, .switch::after { transition: none; }
 }
+
+.tab-panel > .card { margin-top: 0; }
+.tab-panel > .status-card + .history-card { margin-top: 12px; }
+.tab-panel > .history-card + .card { margin-top: 12px; }
