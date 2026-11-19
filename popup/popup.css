@@ -69,15 +69,16 @@ button, select, input[type="range"] { cursor: pointer; }
   flex: 0 0 auto;
   display: flex;
   gap: 2px;
-  padding: 7px 16px;
-  overflow-x: auto;
+  padding: 7px 12px;
+  overflow-x: hidden;
+  justify-content: space-between;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
-  scrollbar-width: thin;
 }
 .section-nav a {
-  flex: 0 0 auto;
-  padding: 7px 10px;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 7px 5px;
   color: var(--muted);
   text-decoration: none;
   white-space: nowrap;
@@ -85,7 +86,7 @@ button, select, input[type="range"] { cursor: pointer; }
   font-size: 11px;
   font-weight: 650;
 }
-.section-nav #tab-maintenance { margin-left: auto; min-width: 34px; text-align: center; font-size: 18px; line-height: 16px; }
+.section-nav #tab-maintenance { margin-left: auto; flex: 0 0 30px; min-width: 30px; text-align: center; font-size: 18px; line-height: 16px; }
 .section-nav a:hover, .section-nav a:focus-visible { color: var(--text); background: var(--surface-raised); }
 .section-nav a[aria-selected="true"] {
   color: var(--text);

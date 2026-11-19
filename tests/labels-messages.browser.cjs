@@ -352,6 +352,8 @@ async function popup(browser) {
   assert.equal(await page.evaluate(()=>commands.find(m=>m.type==='TEST_COMMAND').command),'test 1 2 3');
   assert.equal(await page.locator('#maintenanceCommand').inputValue(),'');
   assert.equal(await page.locator('.section-nav a').count(),6);
+  assert.equal(await page.locator('.section-nav').evaluate(el=>el.scrollWidth <= el.clientWidth),true);
+  assert.equal(await page.locator('#tab-maintenance').isVisible(),true);
   const sectionVisible = selector => page.locator(selector).evaluate(el => {
     const bounds = el.getBoundingClientRect();
     const viewport = document.querySelector('main').getBoundingClientRect();
