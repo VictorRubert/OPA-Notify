@@ -21,9 +21,9 @@ function setup(){
 }
 test('Bridge observes list packets and only forwards minimal attendance metadata',()=>{
  const s=setup();
- const raw={_id:'attendance-1',protocolo:'OPA20261145',id_cliente:null,id_user:{nome:'Contato teste',whatsapp:'private'},motivos:[],token:'secret',lastMessage:{mensagem:'private'}};
+ const raw={_id:'attendance-1',protocolo:'OPA20261145',id_cliente:null,id_user:{nome:'Contato teste',whatsapp:'private'},token:'secret',lastMessage:{mensagem:'private'}};
  s.socket.receive('42'+JSON.stringify([EVENT,{items:[raw],page:1,hasMore:false}]));
- assert.deepEqual(s.messages.filter(m=>m.kind==='page'),[{source:'opa-notify-queue-v1',kind:'page',page:1,hasMore:false,view:'Meus atendimentos',items:[{id:'attendance-1',protocol:'OPA20261145',company:'Contato teste',reasons:0,tags:[],pinned:false,unread:false,cursor:null,activity:null}]}]);
+ assert.deepEqual(s.messages.filter(m=>m.kind==='page'),[{source:'opa-notify-queue-v1',kind:'page',page:1,hasMore:false,view:'Meus atendimentos',items:[{id:'attendance-1',protocol:'OPA20261145',company:'Contato teste',tags:[],pinned:false,unread:false,cursor:null,activity:null}]}]);
  assert(s.socket instanceof vm.runInContext('WebSocket',s.context));
  assert.equal(vm.runInContext('WebSocket.OPEN',s.context),1);
 });

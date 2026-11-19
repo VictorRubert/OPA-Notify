@@ -8,9 +8,6 @@ const DEFAULTS = {
   systemNotificationsEnabled: true,
   colorHighlightEnabled: true,
   highlightFillMode: 'soft',
-  motivoHighlightEnabled: true,
-  motivoBlinkEnabled: true,
-  motivoChargeEnabled: true,
   notifyOnFinished: true,
   ...OpaTagSettings.defaults, notifyClientMessages: true, messageScope: 'all',
   soundEnabled: true,
@@ -49,7 +46,7 @@ async function initialize() {
 function cacheElements() {
   for (const id of [
     'termostatoEnabled', 'termostatoHumorEnabled', 'termostatoPendingEnabled',
-    'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
+    'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'notifyOnFinished', 'soundEnabled',
     'volume', 'volumeValue', 'soundPreset', 'toastDuration', 'toastDurationValue', 'toastPosition',
     'customSoundArea', 'customSoundFile', 'customSoundName',
     'maintenanceForm', 'maintenanceCommand', 'maintenanceOk',
@@ -88,9 +85,6 @@ function bindEvents() {
     await updateStatus();
   });
   elements.highlightFillMode.addEventListener('change', saveSimpleSettings);
-  elements.motivoHighlightEnabled.addEventListener('change', saveSimpleSettings);
-  elements.motivoBlinkEnabled.addEventListener('change', saveSimpleSettings);
-  elements.motivoChargeEnabled.addEventListener('change', saveSimpleSettings);
   elements.notifyOnFinished.addEventListener('change', saveSimpleSettings);
   elements.soundEnabled.addEventListener('change', saveSimpleSettings);
   elements.soundPreset.addEventListener('change', async () => {
@@ -127,9 +121,6 @@ async function loadSettings() {
   elements.systemNotificationsEnabled.checked = settings.systemNotificationsEnabled;
   elements.colorHighlightEnabled.checked = settings.colorHighlightEnabled;
   elements.highlightFillMode.value = normalizeHighlightFillMode(settings.highlightFillMode);
-  elements.motivoHighlightEnabled.checked = settings.motivoHighlightEnabled;
-  elements.motivoBlinkEnabled.checked = settings.motivoBlinkEnabled;
-  elements.motivoChargeEnabled.checked = settings.motivoChargeEnabled;
   elements.notifyOnFinished.checked = settings.notifyOnFinished;
   elements.soundEnabled.checked = settings.soundEnabled;
   elements.volume.value = Math.round(settings.volume * 100);
@@ -152,9 +143,6 @@ async function saveSimpleSettings() {
     systemNotificationsEnabled: elements.systemNotificationsEnabled.checked,
     colorHighlightEnabled: elements.colorHighlightEnabled.checked,
     highlightFillMode: normalizeHighlightFillMode(elements.highlightFillMode.value),
-    motivoHighlightEnabled: elements.motivoHighlightEnabled.checked,
-    motivoBlinkEnabled: elements.motivoBlinkEnabled.checked,
-    motivoChargeEnabled: elements.motivoChargeEnabled.checked,
     notifyOnFinished: elements.notifyOnFinished.checked,
     soundEnabled: elements.soundEnabled.checked,
     volume: Number(elements.volume.value) / 100,

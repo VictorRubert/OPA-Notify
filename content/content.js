@@ -3,7 +3,6 @@
   globalThis.__OPA_NOTIFY_CONTENT_LOADED__ = true;
 
   const SCAN_INTERVAL_MS = 5000;
-  const MOTIVO_CHECK_DEBOUNCE_MS = 250;
   const STABILITY_DELAY_MS = 700;
   const UNCHANGED_HEARTBEAT_MS = 15000;
   const INITIAL_EMPTY_DELAY_MS = 10000;
@@ -17,11 +16,6 @@
   const GENERATED_TAGS_CLASS = 'opa-notify-generated-tags';
   const INACTIVITY_ROW_CLASS = 'opa-notify-inactivity-row';
   const INACTIVITY_TAG_CLASS = 'opa-notify-inactivity-tag';
-  const MOTIVO_EMPTY_CLASS = 'opa-notify-motivo-empty';
-  const MOTIVO_EMPTY_CONTAINER_CLASS = 'opa-notify-motivo-empty-container';
-  const MOTIVO_BLINK_CLASS = 'opa-notify-motivo-blink';
-  const MOTIVO_SWITCH_MODAL_ID = 'opa-notify-motivo-switch-modal';
-  const MOTIVO_CHARGE_AFTER_MS = 5 * 60 * 1000;
   const HIGHLIGHT_MODE_CLASSES = [
     'opa-notify-current-attendance--soft',
     'opa-notify-current-attendance--full',
@@ -72,11 +66,6 @@
     return Boolean((attendance.id && attendance.id === open.id) || (attendance.protocol && attendance.protocol === open.protocol));
   }
   function currentNewAttendance() { return document.querySelector('[data-customer-service-id][data-protocol]'); }
-  function currentCard() {
-    if (!isNewInterface()) return document.querySelector('.chat.selected[data-id]');
-    const id = currentNewAttendance()?.getAttribute('data-customer-service-id');
-    return [...document.querySelectorAll(NEW_CARD)].find(card => cardId(card) === id) || null;
-  }
   window.addEventListener('message', event => {
     if (event.source !== window || event.origin !== location.origin || !isSupportPage) return;
     const data = event.data;
@@ -108,14 +97,6 @@
       }
       return;
     }
-    if (data.kind === 'reasons') {
-      const metadata = newMetadata.get(data.id);
-      if (metadata && Number.isInteger(data.reasons) && data.reasons >= 0) {
-        metadata.reasons = data.reasons;
-        scheduleMotivoHighlight();
-      }
-      return;
-    }
     if (data.kind === 'reset') { queuePages.clear(); newQueue = null; return; }
     if (data.kind !== 'page' || !Array.isArray(data.items) || !Number.isInteger(data.page) || data.page < 1 || data.page > 1000 || typeof data.hasMore !== 'boolean') return;
     if (!personalListAvailable() || normalizeInterfaceText(data.view) !== 'meus atendimentos') { queuePages.clear(); newQueue = null; return; }
@@ -142,7 +123,6 @@
     }
     updateQueueFeatures();
     applyHighlightedAttendance();
-    scheduleMotivoHighlight();
     const confirmsDeparture = confirmationRefreshPending;
     confirmationRefreshPending = false;
     confirmationSnapshotReady = confirmsDeparture;
@@ -155,10 +135,7 @@
     ...featureDefaults,
     enabled: true,
     colorHighlightEnabled: true,
-    highlightFillMode: 'soft',
-    motivoHighlightEnabled: true,
-    motivoBlinkEnabled: true,
-    motivoChargeEnabled: true
+    highlightFillMode: 'soft'
   };
   let highlightedProtocol = '';
   let observer = null;
@@ -172,11 +149,6 @@
   let lastSentAt = 0;
   let toastRoot = null;
   let toastContainer = null;
-  let motivoHighlightTimer = null;
-  let motivoBlinkElement = null;
-  let motivoBlinkTimer = null;
-  let attendanceHistoryCache = [];
-  let allowAttendanceSwitchOnce = false;
   const scriptStartedAt = Date.now();
 
   const isSupportPage = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'].includes(location.origin);
@@ -191,12 +163,9 @@
 
   async function initialize() {
     await loadSettings();
-    await loadAttendanceHistory();
     ensureHighlightStyles();
     applyHighlightedAttendance();
-    scheduleMotivoHighlight(600);
     watchSettings();
-    installAttendanceSwitchGuard();
     observePage();
     scheduleScan(1200);
     periodicTimer = setInterval(() => scheduleScan(0), SCAN_INTERVAL_MS);
@@ -209,25 +178,13 @@
       'enabled',
       'colorHighlightEnabled',
       'highlightFillMode',
-      'motivoHighlightEnabled',
-      'motivoBlinkEnabled',
-      'motivoChargeEnabled',
-      'attendanceHistory',
       'highlightedAttendanceProtocol'
     ]);
     for (const [key, fallback] of Object.entries(featureDefaults)) settings[key] = stored[key] ?? fallback;
     settings.enabled = stored.enabled !== false;
     settings.colorHighlightEnabled = stored.colorHighlightEnabled !== false;
     settings.highlightFillMode = normalizeHighlightFillMode(stored.highlightFillMode);
-    settings.motivoHighlightEnabled = stored.motivoHighlightEnabled !== false;
-    settings.motivoBlinkEnabled = stored.motivoBlinkEnabled !== false;
-    settings.motivoChargeEnabled = stored.motivoChargeEnabled !== false;
     highlightedProtocol = normalizeProtocol(stored.highlightedAttendanceProtocol);
-  }
-
-  async function loadAttendanceHistory() {
-    const stored = await chrome.storage.local.get('attendanceHistory');
-    attendanceHistoryCache = Array.isArray(stored.attendanceHistory) ? stored.attendanceHistory : [];
   }
 
   function watchSettings() {
@@ -245,9 +202,6 @@
         updateQueueFeatures();
         scheduleScan(0);
       }
-      if (changes.attendanceHistory) {
-        attendanceHistoryCache = Array.isArray(changes.attendanceHistory.newValue) ? changes.attendanceHistory.newValue : [];
-      }
       if (changes.colorHighlightEnabled) {
         settings.colorHighlightEnabled = changes.colorHighlightEnabled.newValue !== false;
         applyHighlightedAttendance();
@@ -258,201 +212,12 @@
         applyHighlightedAttendance();
       }
 
-      if (changes.motivoHighlightEnabled) {
-        settings.motivoHighlightEnabled = changes.motivoHighlightEnabled.newValue !== false;
-        scheduleMotivoHighlight(0);
-      }
-
-      if (changes.motivoBlinkEnabled) {
-        settings.motivoBlinkEnabled = changes.motivoBlinkEnabled.newValue !== false;
-        scheduleMotivoHighlight(0);
-      }
-
       if (changes.highlightedAttendanceProtocol) {
         highlightedProtocol = normalizeProtocol(
           changes.highlightedAttendanceProtocol.newValue
         );
         applyHighlightedAttendance();
       }
-    });
-  }
-
-  function installAttendanceSwitchGuard() {
-    document.addEventListener('click', handleAttendanceSwitchClick, true);
-  }
-
-  function handleAttendanceSwitchClick(event) {
-    if (allowAttendanceSwitchOnce) {
-      allowAttendanceSwitchOnce = false;
-      return;
-    }
-
-    if (!isOngoingAttendancesModuleActive()) return;
-
-    const clickedChat = event.target?.closest?.(CARD_SELECTOR);
-    if (!clickedChat) return;
-
-    const currentChat = currentCard() || currentNewAttendance();
-    if (!currentChat || currentChat === clickedChat || cardId(clickedChat) === currentChat.getAttribute('data-customer-service-id')) return;
-
-    if (!settings.motivoChargeEnabled) return;
-
-    const motivo = findMotivoRenderedElement();
-    if (!motivo || !isMotivoEmpty(motivo)) return;
-
-    const currentProtocol = extractProtocol(currentChat);
-    if (!shouldChargeMotivo(currentProtocol)) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-
-    showMotivoSwitchModal(() => {
-      allowAttendanceSwitchOnce = true;
-      const clickable = cardClickTarget(clickedChat);
-      setTimeout(() => clickable.click(), 0);
-    });
-  }
-
-  function shouldChargeMotivo(protocol) {
-    if (!protocol) return true;
-
-    // Usa somente o histórico persistido dos 5 últimos atendimentos.
-    // Se o atendimento não estiver mais nele, ele é considerado antigo.
-    const entry = attendanceHistoryCache.find(
-      item => normalizeProtocol(item?.protocol) === protocol
-    );
-
-    if (!entry) return true;
-
-    const receivedAt = Number(entry.receivedAt) || 0;
-    if (!receivedAt) return true;
-
-    return Date.now() - receivedAt >= MOTIVO_CHARGE_AFTER_MS;
-  }
-
-  function showMotivoSwitchModal(onContinue) {
-    const existing = document.getElementById(MOTIVO_SWITCH_MODAL_ID);
-    if (existing) return;
-
-    const host = document.createElement('div');
-    host.id = MOTIVO_SWITCH_MODAL_ID;
-    host.style.position = 'fixed';
-    host.style.inset = '0';
-    host.style.zIndex = '2147483646';
-    host.style.fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-
-    const shadow = host.attachShadow({ mode: 'open' });
-    const style = document.createElement('style');
-    style.textContent = `
-      :host { all: initial; }
-      .backdrop {
-        position: fixed;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        padding: 20px;
-        background: rgba(7, 9, 14, 0.58);
-        backdrop-filter: blur(2px);
-        box-sizing: border-box;
-      }
-      .modal {
-        width: min(460px, calc(100vw - 40px));
-        box-sizing: border-box;
-        padding: 24px;
-        color: #f7f8fb;
-        background: #191d2a;
-        border: 1px solid rgba(255,255,255,.12);
-        border-top: 4px solid #ef7d00;
-        border-radius: 14px;
-        box-shadow: 0 24px 70px rgba(0,0,0,.5);
-        animation: enter .18s ease-out both;
-      }
-      .icon {
-        width: 42px;
-        height: 42px;
-        display: grid;
-        place-items: center;
-        margin-bottom: 14px;
-        border-radius: 11px;
-        color: #ff9a2f;
-        background: rgba(239,125,0,.15);
-      }
-      .icon svg { width: 23px; height: 23px; fill: currentColor; }
-      h2 {
-        margin: 0 0 10px;
-        color: #fff;
-        font-size: 18px;
-        line-height: 1.3;
-      }
-      p {
-        margin: 0;
-        color: #cbd0dc;
-        font-size: 14px;
-        line-height: 1.55;
-      }
-      .actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 9px;
-        margin-top: 22px;
-      }
-      button {
-        min-height: 38px;
-        padding: 0 14px;
-        border: 0;
-        border-radius: 8px;
-        font: inherit;
-        font-size: 13px;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      .back { color: #d7dbe5; background: #2a2f3d; }
-      .back:hover { background: #343a4a; }
-      .continue { color: #fff; background: #ef7d00; }
-      .continue:hover { background: #ff8d12; }
-      @keyframes enter {
-        from { opacity: 0; transform: translateY(5px) scale(.985); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-      }
-    `;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'backdrop';
-    wrapper.innerHTML = `
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="opa-notify-motivo-title">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 2 1.8 20h20.4L12 2Zm0 5.2 6.1 10.8H5.9L12 7.2Zm-1 3v4.4h2v-4.4h-2Zm0 5.4v2h2v-2h-2Z"/></svg>
-        </div>
-        <h2 id="opa-notify-motivo-title">Atenção</h2>
-        <p>Adicionar um motivo de atendimento é muito importante para o controle das nossas métricas do setor!</p>
-        <p style="margin-top:8px;">Você ainda não informou um motivo para este atendimento.</p>
-        <div class="actions">
-          <button class="back" type="button">Voltar</button>
-          <button class="continue" type="button">Continuar mesmo assim</button>
-        </div>
-      </div>
-    `;
-
-    shadow.append(style, wrapper);
-    document.documentElement.appendChild(host);
-
-    const close = () => {
-      document.removeEventListener('keydown', onKeyDown, true);
-      host.remove();
-    };
-    const onKeyDown = event => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        close();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-
-    wrapper.querySelector('.back').addEventListener('click', close);
-    wrapper.querySelector('.continue').addEventListener('click', () => {
-      close();
-      onContinue();
     });
   }
 
@@ -647,7 +412,6 @@
         m.oldValue?.split(' ').includes('notifica'));
       if (!mutations.length) return;
       let shouldScanAttendances = false;
-      let shouldCheckMotivo = false;
 
       for (const mutation of mutations) {
         if (mutation.type === 'childList') {
@@ -662,52 +426,25 @@
              node.querySelector?.('.chat[data-id], .list_dados, .filtros_atendimentos_ea, .item[data-id="chat"]'))
           ));
 
-          const changedMotivo = changedNodes.some(node => (
-            node.nodeType === Node.ELEMENT_NODE &&
-            (node.matches?.('#select2-select_motivos-container, [id^="select2-select_motivos"][id$="-container"], .select2-selection__rendered') ||
-             node.querySelector?.('#select2-select_motivos-container, [id^="select2-select_motivos"][id$="-container"], .select2-selection__rendered'))
-          ));
-
           shouldScanAttendances ||= changedAttendances;
-          shouldCheckMotivo ||= changedMotivo;
           continue;
         }
 
-        if (mutation.type === 'characterData') {
-          shouldCheckMotivo ||= isMotivoRelatedNode(mutation.target);
-          continue;
-        }
-
-        if (mutation.type === 'attributes') {
-          shouldCheckMotivo ||= isMotivoRelatedNode(mutation.target);
-        }
+        if (mutation.type === 'characterData') continue;
       }
-
       if (isNewInterface()) {
-        shouldScanAttendances ||= mutations.some(m => m.target?.closest?.(NEW_LIST) || [...m.addedNodes || []].some(n => n.matches?.(NEW_LIST) || n.querySelector?.(NEW_LIST)));
-        shouldCheckMotivo = true;
-      }
-
-      if (!isNewInterface() && (settings.groupByTag || settings.notifyClientMessages)) {
-        shouldScanAttendances ||= mutations.some(m => (m.target.parentElement || m.target).closest?.('.list_dados'));
+        shouldScanAttendances ||= mutations.some(m => m.target?.closest?.(NEW_LIST) ||
+          [...m.addedNodes || []].some(n => n.matches?.(NEW_LIST) || n.querySelector?.(NEW_LIST)));
       }
       if (shouldScanAttendances) {
         applyHighlightedAttendance();
         scheduleScan(350);
       }
-
-      if (shouldCheckMotivo) {
-        scheduleMotivoHighlight();
-      }
     });
 
     observer.observe(document.documentElement, {
       childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeOldValue: true,
-      attributeFilter: ['class', 'itemid', 'data-tag-names', 'data-message-id', 'title', 'aria-expanded', 'aria-selected', 'data-active', 'data-customer-service-id', 'data-protocol']
+      subtree: true
     });
   }
 
@@ -748,7 +485,6 @@
       if (newQueue === null) return;
       items = newQueue;
       applyHighlightedAttendance();
-      scheduleMotivoHighlight();
     } else {
       if (!isOngoingAttendancesModuleActive()) {
         candidateFingerprint = null;
@@ -773,7 +509,6 @@
 
       items = readAttendances(listRoot);
       applyHighlightedAttendance(listRoot);
-      scheduleMotivoHighlight();
 
     }
 
@@ -867,7 +602,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '2.0.2' });
+      sendResponse({ success: true, ready: true, version: '2.0.3' });
       return false;
     }
 
@@ -891,7 +626,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '2.0.2', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '2.0.3', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 
@@ -1106,29 +841,6 @@
         background: #b91c1c !important;
       }
 
-      .${MOTIVO_EMPTY_CONTAINER_CLASS} .select2-selection,
-      .select2-selection.${MOTIVO_EMPTY_CLASS} {
-        background: rgba(220, 38, 38, .92) !important;
-        border-color: rgba(254, 202, 202, .95) !important;
-        box-shadow:
-          inset 0 0 0 1px rgba(255, 255, 255, .22),
-          0 0 0 2px rgba(220, 38, 38, .34),
-          0 0 16px rgba(239, 68, 68, .50) !important;
-        transition: background .18s ease, border-color .18s ease, box-shadow .18s ease !important;
-      }
-
-      .${MOTIVO_EMPTY_CONTAINER_CLASS} .select2-selection__rendered,
-      .select2-selection.${MOTIVO_EMPTY_CLASS} .select2-selection__rendered,
-      .select2-selection__rendered.${MOTIVO_EMPTY_CLASS} {
-        color: #ffffff !important;
-        font-weight: 800 !important;
-      }
-
-      .${MOTIVO_EMPTY_CONTAINER_CLASS} .select2-selection__arrow,
-      .select2-selection.${MOTIVO_EMPTY_CLASS} .select2-selection__arrow {
-        color: #ffffff !important;
-      }
-
     `;
 
     (document.head || document.documentElement).appendChild(style);
@@ -1233,210 +945,6 @@
     return tags;
   }
 
-
-  function isMotivoRelatedNode(node) {
-    const element = node?.nodeType === Node.ELEMENT_NODE
-      ? node
-      : node?.parentElement;
-
-    if (!element) return false;
-
-    return Boolean(
-      element.matches?.('#select2-select_motivos-container, [id^="select2-select_motivos"][id$="-container"], .select2-selection__rendered') ||
-      element.closest?.('#select2-select_motivos-container, [id^="select2-select_motivos"][id$="-container"], .select2-selection')
-    );
-  }
-
-  function scheduleMotivoHighlight(delay = MOTIVO_CHECK_DEBOUNCE_MS) {
-    clearTimeout(motivoHighlightTimer);
-    motivoHighlightTimer = setTimeout(() => {
-      applyMotivoHighlight();
-    }, Math.max(0, delay));
-  }
-
-  function applyMotivoHighlight() {
-    ensureHighlightStyles();
-
-    const rendered = settings.motivoHighlightEnabled
-      ? findMotivoRenderedElement()
-      : null;
-    const shouldHighlight = Boolean(rendered && isMotivoEmpty(rendered));
-    const selection = shouldHighlight
-      ? rendered.closest('.select2-selection') || rendered
-      : null;
-    const container = shouldHighlight
-      ? rendered.closest('.select2-container') || selection
-      : null;
-
-    document
-      .querySelectorAll(`.${MOTIVO_EMPTY_CLASS}`)
-      .forEach(element => {
-        if (element !== rendered && element !== selection) {
-          element.classList.remove(MOTIVO_EMPTY_CLASS);
-          element.classList.remove(MOTIVO_BLINK_CLASS);
-        }
-      });
-
-    document
-      .querySelectorAll(`.${MOTIVO_EMPTY_CONTAINER_CLASS}`)
-      .forEach(element => {
-        if (element !== container) {
-          element.classList.remove(MOTIVO_EMPTY_CONTAINER_CLASS);
-        }
-      });
-
-    if (!shouldHighlight) {
-      if (rendered) {
-        rendered.classList.remove(MOTIVO_EMPTY_CLASS);
-        rendered.classList.remove(MOTIVO_BLINK_CLASS);
-      }
-      if (selection) {
-        selection.classList.remove(MOTIVO_EMPTY_CLASS);
-        selection.classList.remove(MOTIVO_BLINK_CLASS);
-      }
-      stopMotivoBlink();
-      motivoBlinkElement = null;
-      return false;
-    }
-
-    selection.classList.add(MOTIVO_EMPTY_CLASS);
-    rendered.classList.add(MOTIVO_EMPTY_CLASS);
-    container.classList.add(MOTIVO_EMPTY_CONTAINER_CLASS);
-
-    // O vermelho estático continua existindo mesmo quando o pisca-pisca
-    // está desativado. O pisca é controlado separadamente pela configuração.
-    if (!settings.motivoBlinkEnabled) {
-      stopMotivoBlink();
-      motivoBlinkElement = null;
-      selection.style.setProperty('background', 'rgba(220, 38, 38, .92)', 'important');
-      selection.style.setProperty('box-shadow', 'inset 0 0 0 1px rgba(255, 255, 255, .22), 0 0 0 2px rgba(220, 38, 38, .34), 0 0 16px rgba(239, 68, 68, .50)', 'important');
-      return true;
-    }
-
-    if (motivoBlinkElement !== selection || !motivoBlinkTimer) {
-      stopMotivoBlink();
-      motivoBlinkElement = selection;
-      startMotivoBlink(selection);
-    }
-
-    return true;
-  }
-
-  function startMotivoBlink(selection) {
-    stopMotivoBlink();
-    if (!selection?.isConnected) return;
-
-    let step = 0;
-    const intervalMs = 280;
-    const normalBackground = 'rgba(220, 38, 38, .92)';
-    const brightBackground = '#ff0000';
-    const normalShadow = 'inset 0 0 0 1px rgba(255, 255, 255, .22), 0 0 0 2px rgba(220, 38, 38, .34), 0 0 16px rgba(239, 68, 68, .50)';
-    const brightShadow = 'inset 0 0 0 1px rgba(255, 255, 255, .50), 0 0 0 3px rgba(248, 113, 113, .85), 0 0 28px rgba(248, 113, 113, .95)';
-
-    // O Select2 do Opa usa regras com !important. Por isso o efeito é
-    // aplicado diretamente no elemento também com !important, alternando
-    // a formatação real 5 vezes em vez de depender de CSS animation.
-    const paint = (background, shadow) => {
-      if (!selection.isConnected) return;
-      selection.style.setProperty('background', background, 'important');
-      selection.style.setProperty('box-shadow', shadow, 'important');
-    };
-
-    // Estado inicial: visível.
-    paint(normalBackground, normalShadow);
-
-    motivoBlinkTimer = setInterval(() => {
-      if (!selection.isConnected || motivoBlinkElement !== selection) {
-        stopMotivoBlink();
-        return;
-      }
-
-      step += 1;
-      const bright = step % 2 === 1;
-      paint(
-        bright ? brightBackground : normalBackground,
-        bright ? brightShadow : normalShadow
-      );
-
-      // O destaque continua piscando indefinidamente enquanto o motivo
-      // permanecer como "Selecione...". Quando um motivo válido for
-      // selecionado, applyMotivoHighlight() chama stopMotivoBlink().
-    }, intervalMs);
-  }
-
-  function stopMotivoBlink() {
-    if (motivoBlinkTimer) {
-      clearInterval(motivoBlinkTimer);
-      motivoBlinkTimer = null;
-    }
-
-    if (motivoBlinkElement?.isConnected) {
-      motivoBlinkElement.style.removeProperty('background');
-      motivoBlinkElement.style.removeProperty('box-shadow');
-    }
-  }
-
-  function findMotivoRenderedElement() {
-    if (isNewInterface()) return document.querySelector('[data-tutorial="chat-panel-reasons"] [polaris-label="btn-reason"]');
-    const direct = document.getElementById('select2-select_motivos-container')
-      || document.querySelector('[id^="select2-select_motivos"][id$="-container"]');
-
-    if (direct) return direct;
-
-    const hiddenSelect = document.querySelector('#select_motivos, select[name*="motivo" i], select[id*="motivo" i]');
-    if (hiddenSelect?.id) {
-      const escapedId = cssEscape(hiddenSelect.id);
-      const rendered = document.querySelector(`#select2-${escapedId}-container`);
-      if (rendered) return rendered;
-    }
-
-    return [...document.querySelectorAll('.select2-selection__rendered')]
-      .find(element => {
-        const id = String(element.id || '').toLowerCase();
-        if (id.includes('motivo')) return true;
-
-        const title = normalizeMotivoText(element.getAttribute('title'));
-        const text = normalizeMotivoText(element.textContent);
-        return title === 'selecione' && text === 'selecione' && isNearMotivoLabel(element);
-      }) || null;
-  }
-
-  function isNearMotivoLabel(element) {
-    let current = element;
-    for (let depth = 0; current && depth < 8; depth += 1) {
-      const text = normalizeMotivoText(current.textContent || '');
-      if (
-        text.includes('informar motivo do atendimento') ||
-        text.includes('motivo do atendimento')
-      ) {
-        return true;
-      }
-      current = current.parentElement;
-    }
-
-    return false;
-  }
-
-  function isMotivoEmpty(rendered) {
-    if (isNewInterface()) {
-      const id = currentNewAttendance()?.getAttribute('data-customer-service-id');
-      return newMetadata.get(id)?.reasons === 0;
-    }
-    const title = normalizeMotivoText(rendered.getAttribute('title'));
-    const text = normalizeMotivoText(rendered.textContent);
-
-    if (!title && !text) return true;
-    return title === 'selecione' || text === 'selecione';
-  }
-
-  function normalizeMotivoText(value) {
-    return String(value || '')
-      .trim()
-      .replace(/\.+$/g, '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  }
 
   function ensureToastRoot() {
     if (toastRoot?.isConnected && toastContainer) return;

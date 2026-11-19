@@ -9,7 +9,7 @@ const queueEvent = 'customer-services-ui:customer-service-queues:in-progress:lis
 const company = 'Empresa de teste';
 const item = (n, tags = []) => ({
   _id: 'chat-' + n, protocolo: 'OPA10000' + n, id_cliente: { nome: company + n },
-  tags: tags.map(nome => ({ nome })), motivos: [], lastMessage: { _id: 'old' + n }
+  tags: tags.map(nome => ({ nome })), lastMessage: { _id: 'old' + n }
 });
 const legacyChat = (i, tags) => '<div><div class="chat" data-id="chat-' + i + '"><div class="corpo"><span class="title">' + company + i + '</span><span>OPA10000' + i + '</span><div class="tags">' + tags.map(t => '<span class="tag">' + t + '</span>').join('') + '</div></div></div></div>';
 const card = i => '<li itemid="chat-' + i + '"><button><p class="font-medium">' + company + i + '</p></button></li>';
@@ -336,6 +336,7 @@ async function popup(browser) {
     assert.equal(await page.locator('#'+id).count(),0);
   }
   assert.equal(await page.getByRole('heading',{name:'Manutenção'}).count(),1);
+  for (const id of ['motivoHighlightEnabled','motivoBlinkEnabled','motivoChargeEnabled']) assert.equal(await page.locator('#'+id).count(),0);
   for (const id of ['clearHighlight','resetBaseline','copyDiagnostics']) assert.equal(await page.locator('#'+id).count(),0);
   assert.equal(await page.locator('#maintenance input').count(),1);
   assert.equal(await page.locator('#maintenance button').count(),1);

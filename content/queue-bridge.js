@@ -174,10 +174,6 @@
       if (cursor && typeof routeId === 'string' && personalView()) {
         window.postMessage({ source: 'opa-notify-queue-v1', kind: 'message', id: routeId, cursor, activity: messageActivity(message, route?.aguardandoCliente, route?.update), unread: message.statusEnvio?.status ? message.statusEnvio.status !== 'read' : null }, location.origin);
       }
-      if (route && typeof route._id === 'string' && Array.isArray(route.motivos)) {
-        // A detail update changes only the reason state, never queue membership.
-        window.postMessage({ source: 'opa-notify-queue-v1', kind: 'reasons', id: route._id, reasons: route.motivos.length }, location.origin);
-      }
       const payload = parsed?.[0] === EVENT ? route : null;
       if (!payload || !Array.isArray(payload.items) || !Number.isInteger(payload.page) || typeof payload.hasMore !== 'boolean') return;
       observesQueue = true;
@@ -195,8 +191,7 @@
           pinned: Boolean(item?.atend_fixado_topo || item?.data_fixacao),
           unread: Boolean(item?.lastMessage?.tipoDestinatario === 'usuarios' && item.lastMessage.statusEnvio?.status && item.lastMessage.statusEnvio.status !== 'read'),
           cursor: messageCursor(item?.lastMessage),
-          activity: messageActivity(item?.lastMessage, item?.aguardandoCliente, item?.update),
-          reasons: Array.isArray(item?.motivos) ? item.motivos.length : null
+          activity: messageActivity(item?.lastMessage, item?.aguardandoCliente, item?.update)
         };
       });
       publish('page', { items, page: payload.page, hasMore: payload.hasMore, view: document.querySelector('[data-tutorial="customer-service-view-selector"]')?.textContent?.trim() || '' });

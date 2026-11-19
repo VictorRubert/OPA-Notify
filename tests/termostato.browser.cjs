@@ -22,9 +22,9 @@ const html = `<main style="background:#f7f8fa">
    const errors = []; page.on('pageerror', e => errors.push(e.message));
    await page.route(origin+'/**', r=>r.fulfill({contentType:'text/html',body:html}));
    await page.addInitScript(() => {
-    window.saved = {termostatoPendingEnabled:false,groupByTag:true,motivoChargeEnabled:false};
+    window.saved = {termostatoPendingEnabled:false,groupByTag:true};
     window.changes=[];window.runtimeListeners=[];
-    window.chrome={runtime:{id:'notify-test',getManifest:()=>({version:'2.0.2'}),onMessage:{addListener:f=>runtimeListeners.push(f)},sendMessage:async()=>({success:true})},storage:{local:{
+    window.chrome={runtime:{id:'notify-test',getManifest:()=>({version:'2.0.3'}),onMessage:{addListener:f=>runtimeListeners.push(f)},sendMessage:async()=>({success:true})},storage:{local:{
      get:(keys,cb)=>{const result=typeof keys==='string'?{[keys]:saved[keys]}:{...saved};if(cb){cb(result);return;}return Promise.resolve(result);},
      set:async values=>{const delta={};for(const [k,v] of Object.entries(values)){delta[k]={newValue:v};saved[k]=v;}changes.forEach(f=>f(delta,'local'));}
     },onChanged:{addListener:f=>changes.push(f)}}};

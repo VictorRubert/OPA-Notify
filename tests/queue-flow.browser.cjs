@@ -8,7 +8,7 @@ const assert=require('node:assert/strict');
 const root=path.join(__dirname,'..');
 const version=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'))).version;
 const event='customer-services-ui:customer-service-queues:in-progress:list';
-const item=n=>({_id:`attendance-${n}`,protocolo:`OPA2026114${n}`,id_user:{nome:`Contato ${n}`},motivos:[]});
+const item=n=>({_id:`attendance-${n}`,protocolo:`OPA2026114${n}`,id_user:{nome:`Contato ${n}`}});
 const html='<button data-tutorial="customer-service-queue-in-progress" class="bg-gray-200 border-gray-400"></button><div data-tutorial="customer-service-list"><div data-tutorial="customer-service-view-selector">Meus atendimentos</div><ul><li itemid="attendance-1"><button data-sidebar="menu-button"><div>Contato 1</div></button></li></ul></div>';
 (async()=>{
  let clock=1000000;

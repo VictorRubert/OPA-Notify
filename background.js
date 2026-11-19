@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '2.0.2';
+const EXTENSION_VERSION = '2.0.3';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -23,9 +23,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   systemNotificationsEnabled: true,
   colorHighlightEnabled: true,
   highlightFillMode: 'soft',
-  motivoHighlightEnabled: true,
-  motivoBlinkEnabled: true,
-  motivoChargeEnabled: true,
   notifyOnFinished: true,
   ...OpaTagSettings.defaults,
   notifyClientMessages: true,
