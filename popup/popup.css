@@ -85,6 +85,7 @@ button, select, input[type="range"] { cursor: pointer; }
   font-size: 11px;
   font-weight: 650;
 }
+.section-nav #tab-maintenance { margin-left: auto; min-width: 34px; text-align: center; font-size: 18px; line-height: 16px; }
 .section-nav a:hover, .section-nav a:focus-visible { color: var(--text); background: var(--surface-raised); }
 .section-nav a[aria-selected="true"] {
   color: var(--text);

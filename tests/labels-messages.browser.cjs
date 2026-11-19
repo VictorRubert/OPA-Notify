@@ -337,6 +337,8 @@ async function popup(browser) {
   }
   assert.equal(await page.locator('#notifications').isVisible(),true);
   assert.equal(await page.locator('#maintenance').isVisible(),false);
+  assert.equal(await page.locator('#tab-maintenance').innerText(),'⋯');
+  assert.equal(await page.locator('#tab-maintenance').getAttribute('aria-label'),'Manutenção');
   await page.locator('#tab-maintenance').click();
   assert.equal(await page.getByRole('heading',{name:'Manutenção'}).count(),1);
   assert.equal(await page.locator('#notifications').isVisible(),false);
