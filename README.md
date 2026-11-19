@@ -1,4 +1,4 @@
-# Termofy v2.0.6
+# Termofy v2.0.7
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 

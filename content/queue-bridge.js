@@ -8,6 +8,7 @@
   const LOAD_EVENT = 'customer-services-ui:customer-service-queues:in-progress:load-customer-services';
   const REFRESH_INTERVAL_MS = 15000;
   const refreshers = new Map();
+  const additionalFilterActive = () => Boolean(document.querySelector('[data-tutorial="customer-service-list-filters"] .bg-blue-600.rounded-full'));
   function personalView() {
     const filter = document.querySelector('[data-tutorial="customer-service-view-selector"]');
     const tab = document.querySelector('[data-tutorial="customer-service-queue-in-progress"]');
@@ -110,6 +111,7 @@
     const refresh = (confirm = false) => {
       if (!observesQueue) return;
       if (!personalView()) return reportRefresh('inactive-view');
+      if (additionalFilterActive()) return reportRefresh('filter-active');
       if (!queryConfirmed || collectingPages) return reportRefresh('waiting-for-complete-query');
       if (socket.readyState !== NativeSocket.OPEN) return reportRefresh('socket-not-open');
       if (Date.now() - lastRequestAt < (confirm ? 2000 : REFRESH_INTERVAL_MS)) return reportRefresh('rate-limited');
@@ -154,9 +156,9 @@
         if (typeof value === 'string' && value.startsWith('42[') && (payload == null || (typeof payload === 'object' && !Array.isArray(payload)))) {
           const page = payload?.page ?? 1;
           if (Number.isInteger(page) && page >= 1 && page <= 1000) {
-            if (parsed[0] === LOAD_EVENT && page === 1) { requests.clear(); queryConfirmed = false; completePageCount = 0; }
-            if (personalView()) requests.set(parsed[0] + ':' + page, value);
-            else { requests.clear(); queryConfirmed = false; }
+            if (parsed[0] === LOAD_EVENT && page === 1 && !additionalFilterActive()) { requests.clear(); queryConfirmed = false; completePageCount = 0; }
+            if (personalView() && !additionalFilterActive()) requests.set(parsed[0] + ':' + page, value);
+            else if (!personalView()) { requests.clear(); queryConfirmed = false; }
           }
         }
       }
@@ -178,7 +180,7 @@
       if (!payload || !Array.isArray(payload.items) || !Number.isInteger(payload.page) || typeof payload.hasMore !== 'boolean') return;
       observesQueue = true;
       collectingPages = payload.hasMore;
-      if (!payload.hasMore && personalView()) {
+      if (!payload.hasMore && personalView() && !additionalFilterActive()) {
         completePageCount = payload.page;
         queryConfirmed = requests.has(LOAD_EVENT + ':1') && requests.has(EVENT + ':1');
       }

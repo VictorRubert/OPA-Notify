@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const EVENT='customer-services-ui:customer-service-queues:in-progress:list';
 function setup(){
- const messages=[],handlers=new Map();let time=1000000,view='Meus atendimentos';
+ const messages=[],handlers=new Map();let time=1000000,view='Meus atendimentos',filtered=false;
  class Socket {
   static OPEN=1;
   constructor(url){this.url=url;this.listeners=new Map();this.sent=[];this.readyState=1;}
@@ -14,10 +14,10 @@ function setup(){
   receive(value){this.listeners.get('message')({data:value});}
  }
  const window={postMessage:data=>messages.push(structuredClone(data)),addEventListener:(name,fn)=>handlers.set(name,fn)};
- const context=vm.createContext({window,document:{querySelector:selector=>selector.includes('view-selector')?{textContent:view}:selector.includes('queue-in-progress')?{getAttribute:()=>"true",classList:{contains:()=>true}}:null},Date:class extends Date{static now(){return time;}},location:{origin:'https://suporte.ixcsoft.com.br'},WebSocket:Socket});
+ const context=vm.createContext({window,document:{querySelector:selector=>selector.includes('view-selector')?{textContent:view}:selector.includes('queue-in-progress')?{getAttribute:()=>"true",classList:{contains:()=>true}}:selector.includes('list-filters')&&filtered?{}:null},Date:class extends Date{static now(){return time;}},location:{origin:'https://suporte.ixcsoft.com.br'},WebSocket:Socket});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../content/queue-bridge.js'),'utf8'),context);
  const socket=vm.runInContext("new WebSocket('wss://suporte.ixcsoft.com.br/socket.io/')",context);
- return {socket,messages,window,handlers,context,advance:ms=>{time+=ms;},setView:value=>{view=value;},refresh:(confirm=false)=>handlers.get('message')({source:window,origin:'https://suporte.ixcsoft.com.br',data:{source:'opa-notify-refresh-queue-v1',confirm}})};
+ return {socket,messages,window,handlers,context,advance:ms=>{time+=ms;},setView:value=>{view=value;},setFiltered:value=>{filtered=value;},refresh:(confirm=false)=>handlers.get('message')({source:window,origin:'https://suporte.ixcsoft.com.br',data:{source:'opa-notify-refresh-queue-v1',confirm}})};
 }
 test('Bridge observes list packets and only forwards minimal attendance metadata',()=>{
  const s=setup();
@@ -71,6 +71,17 @@ test('Automatic queries are rate limited and disabled outside the personal queue
  s.advance(15000);s.setView('Todos em andamento');s.refresh();assert.equal(s.socket.sent.length,2);
  s.setView('Meus atendimentos');s.refresh();assert.equal(s.socket.sent.length,4);
  s.refresh();assert.equal(s.socket.sent.length,4);
+});
+test('Active list filter pauses automatic queue reads even with the filter dialog closed',()=>{
+ const s=setup();const {load,list}=prime(s);s.advance(15000);s.setFiltered(true);
+ s.socket.send('42'+JSON.stringify([LOAD,{preferences:{filtered:true}}]));
+ s.socket.send('42'+JSON.stringify([EVENT,{preferences:{filtered:true},page:1}]));
+ s.socket.receive('42'+JSON.stringify([EVENT,{items:[],page:1,hasMore:false}]));
+ s.refresh();
+ assert.equal(s.socket.sent.length,4);
+ assert.equal(s.messages.at(-1).state,'filter-active');
+ s.setFiltered(false);s.advance(15000);s.refresh();
+ assert.deepEqual(s.socket.sent.slice(-2),[load,list]);
 });
 test('No query is invented before capturing a complete personal query or after socket close',()=>{
  const s=setup();s.advance(15000);s.refresh();assert.equal(s.socket.sent.length,0);

@@ -23,6 +23,7 @@
   ];
 
   const NEW_LIST = '[data-tutorial="customer-service-list"]';
+  const NEW_FILTER_BUTTON = '[data-tutorial="customer-service-list-filters"]';
   const NEW_CARD = `${NEW_LIST} [itemid]`;
   const CARD_SELECTOR = `.chat[data-id], ${NEW_CARD}`;
   let queuePages = new Map();
@@ -32,6 +33,7 @@
   let confirmationRefreshPending = false;
   let confirmationSnapshotReady = false;
   let initialSnapshotPending = true;
+  let additionalFilterWasActive = false;
   const queueDiagnostics = [];
   let newMetadata = new Map();
   const cursors = new Map();
@@ -45,6 +47,28 @@
   };
 
   function isNewInterface() { return Boolean(document.querySelector(NEW_LIST)); }
+  function additionalFilterActive() {
+    const button = document.querySelector(NEW_FILTER_BUTTON);
+    return Boolean(button?.querySelector('.bg-blue-600.rounded-full'));
+  }
+  function syncAdditionalFilter() {
+    const active = additionalFilterActive();
+    if (active && !additionalFilterWasActive) {
+      additionalFilterWasActive = true;
+      queuePages.clear();
+      newQueue = null;
+      confirmationRefreshPending = false;
+      confirmationSnapshotReady = false;
+      initialSnapshotPending = true;
+      lastSentFingerprint = null;
+    } else if (!active && additionalFilterWasActive) {
+      additionalFilterWasActive = false;
+      queuePages.clear();
+      newQueue = null;
+      initialSnapshotPending = true;
+    }
+    return active;
+  }
   function isPersonalNewQueue() {
     const filter = document.querySelector('[data-tutorial="customer-service-view-selector"]');
     const tab = document.querySelector('[data-tutorial="customer-service-queue-in-progress"]');
@@ -71,7 +95,7 @@
     const data = event.data;
     if (data?.source !== 'opa-notify-queue-v1') return;
     if (data.kind === 'refresh-status') {
-      const states = ['inactive-view', 'waiting-for-complete-query', 'socket-not-open', 'rate-limited', 'search-active', 'missing-query', 'missing-page-query', 'sent', 'send-failed'];
+      const states = ['inactive-view', 'waiting-for-complete-query', 'socket-not-open', 'rate-limited', 'search-active', 'filter-active', 'missing-query', 'missing-page-query', 'sent', 'send-failed'];
       if (states.includes(data.state)) queueRefreshState = { state: data.state, queryCaptured: data.queryCaptured === true, lastRequestAt: Number.isFinite(data.lastRequestAt) ? data.lastRequestAt : null, intervalMs: 15000 };
       return;
     }
@@ -222,7 +246,7 @@
   }
 
   function personalListAvailable() {
-    return isPersonalNewQueue() && !document.querySelector(`${NEW_LIST} input:not([type=checkbox]):not([type=radio])`)?.value?.trim();
+    return isPersonalNewQueue() && !syncAdditionalFilter() && !document.querySelector(`${NEW_LIST} input:not([type=checkbox]):not([type=radio])`)?.value?.trim();
   }
 
   function observeMessage(item, cursor, legacy = false) {
@@ -469,8 +493,9 @@
     let items;
     const completeSnapshot = isNewInterface();
     if (completeSnapshot) {
+      syncAdditionalFilter();
       if (!isPersonalNewQueue()) { newQueue = null; queuePages.clear(); confirmationRefreshPending = false; confirmationSnapshotReady = false; return; }
-      if (document.querySelector(`${NEW_LIST} input:not([type=checkbox]):not([type=radio])`)?.value?.trim()) return;
+      if (!personalListAvailable()) return;
       const freshConfirmation = confirmationSnapshotReady;
       confirmationSnapshotReady = false;
       force ||= freshConfirmation;
@@ -602,7 +627,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '2.0.6' });
+      sendResponse({ success: true, ready: true, version: '2.0.7' });
       return false;
     }
 
@@ -626,7 +651,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '2.0.6', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '2.0.7', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 

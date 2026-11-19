@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Termofy",
   "short_name": "Termofy",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "description": "Alertas de atendimentos e mensagens de clientes, agrupamento por etiqueta e destaques na fila do Opa! Suite.",
   "minimum_chrome_version": "111",
   "permissions": [

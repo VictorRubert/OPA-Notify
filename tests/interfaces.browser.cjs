@@ -51,6 +51,19 @@ const item=(id,protocol)=>({_id:id,protocolo:protocol,id_cliente:null,id_user:{n
     assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN').at(-1).initialRead),false);
    }
    if(mode==='modern'){
+    // The blue dot is Opa's active advanced-filter marker. Filtered socket
+    // pages must not become queue arrivals or departures; resumption rebases.
+    await page.locator('[data-tutorial="customer-service-list"]').evaluate(el=>el.insertAdjacentHTML('afterbegin','<button data-tutorial="customer-service-list-filters" aria-expanded="false"><i class="fa-bars-filter"></i><div class="bg-blue-600 rounded-full"></div></button>'));
+    const filteredCount=scans.length;
+    await page.evaluate(({EVENT,items})=>socket.receive('42'+JSON.stringify([EVENT,{items,page:1,hasMore:false}])),{EVENT,items:[item('attendance-1','OPA20261145')]});
+    await page.waitForTimeout(30);await page.evaluate(()=>{clock+=16000;});await page.evaluate(()=>scan());
+    assert.equal(await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN').length),filteredCount);
+    await page.locator('[data-tutorial="customer-service-list-filters"] .bg-blue-600').evaluate(el=>el.remove());
+    await page.evaluate(({EVENT,items})=>socket.receive('42'+JSON.stringify([EVENT,{items,page:1,hasMore:false}])),{EVENT,items:[item('attendance-1','OPA20261145'),item('attendance-2','OPA20261146')]});
+    await page.waitForTimeout(30);await page.evaluate(()=>scan());
+    scans=await page.evaluate(()=>sent.filter(m=>m.type==='ATTENDANCE_SCAN'));
+    assert.equal(scans.at(-1).initialRead,true);
+    assert.equal(scans.at(-1).items.length,2);
     // Removing a virtualized row must not remove it from the queue snapshot.
     await page.locator('[itemid="attendance-2"]').evaluate(el=>el.remove());
     await page.evaluate(()=>{clock+=16000;});await page.evaluate(()=>scan());
