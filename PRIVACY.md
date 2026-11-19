@@ -20,6 +20,8 @@ O armazenamento local da extensão no Chrome contém as preferências, o áudio 
 
 O armazenamento de sessão do Chrome contém identificadores e horários de eventos recentes, resultados de entrega dos avisos e, enquanto uma notificação do sistema de entrada ou saída estiver ativa, os dados necessários para abri-la no Opa. Esses dados de sessão são descartados quando a sessão do navegador termina. A base e o histórico locais permanecem enquanto os dados da extensão estiverem no Chrome. O usuário pode remover esses dados apagando os dados da extensão ou desinstalando-a.
 
+Escolhas manuais de humor feitas pelo comando interno são salvas localmente por identificador de atendimento até serem removidas pelo comando de releitura. O comando atua apenas na conversa aberta na aba ativa do Opa.
+
 O Termostato guarda localmente, na chave `ixcOpa`, identificadores dos atendimentos, categoria e nota do humor, quantidade de mensagens analisadas, horários e registros de pendência marcada ou bloqueada. Não salva o texto das mensagens nesse cache. Registros com mais de sete dias são removidos quando o módulo carrega o armazenamento. Desativar o módulo não apaga o cache nem desfaz pendências já marcadas.
 
 ## Acesso a páginas e compartilhamento

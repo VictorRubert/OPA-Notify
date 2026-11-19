@@ -21,6 +21,8 @@ Uma ação já enviada ao Opa pode terminar sua confirmação após desativar.
 O Termostato só reconhece os seletores da interface nova, nos dois domínios da
 Notify; o monitor original da Notify continua atendendo a interface antiga.
 
+Os comandos internos de status guardam o nível manual na chave `termofyMoodOverrides`, por atendimento. `status read` remove apenas o nível da conversa aberta e recalcula o humor pelas mensagens disponíveis.
+
 O armazenamento original usa a chave `ixcOpa`, sem colisão com as preferências
 da Notify. O cache da extensão Termostato separada não migra automaticamente:
 o Chrome separa o armazenamento por extensão. Desative a instalação separada e

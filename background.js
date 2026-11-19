@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '1.6.11';
+const EXTENSION_VERSION = '1.6.12';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -666,7 +666,22 @@ function parseTestCommand(command) {
   return [...new Set(command.trim().split(/\s+/).slice(1))].map(number => ({1:'received',2:'finished',3:'message'})[number]);
 }
 
+function parseStatusCommand(command) {
+  const match = typeof command === 'string' && command.length <= 40 && command.trim().match(/^status\s+(read|[0-5])$/i);
+  return match ? match[1].toLowerCase() : null;
+}
+
+async function runStatusCommand(value) {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs.find(candidate => isSupportUrl(candidate.url));
+  if (!tab?.id) return { success: false, error: 'Abra a conversa do cliente no Opa.' };
+  const response = await chrome.tabs.sendMessage(tab.id, { type: 'TERMOFY_STATUS_COMMAND', value });
+  return response?.success ? { success: true } : { success: false, error: response?.error || 'Não foi possível atualizar o status.' };
+}
+
 async function runTestCommand(command) {
+  const status = parseStatusCommand(command);
+  if (status !== null) return runStatusCommand(status);
   const events = parseTestCommand(command);
   if (!events) return { success: false, error: 'Comando inválido.' };
   const errors = [];

@@ -24,7 +24,7 @@ const html = `<main style="background:#f7f8fa">
    await page.addInitScript(() => {
     window.saved = {termostatoPendingEnabled:false,groupByTag:true,motivoChargeEnabled:false};
     window.changes=[];window.runtimeListeners=[];
-    window.chrome={runtime:{id:'notify-test',getManifest:()=>({version:'1.6.11'}),onMessage:{addListener:f=>runtimeListeners.push(f)},sendMessage:async()=>({success:true})},storage:{local:{
+    window.chrome={runtime:{id:'notify-test',getManifest:()=>({version:'1.6.12'}),onMessage:{addListener:f=>runtimeListeners.push(f)},sendMessage:async()=>({success:true})},storage:{local:{
      get:(keys,cb)=>{const result=typeof keys==='string'?{[keys]:saved[keys]}:{...saved};if(cb){cb(result);return;}return Promise.resolve(result);},
      set:async values=>{const delta={};for(const [k,v] of Object.entries(values)){delta[k]={newValue:v};saved[k]=v;}changes.forEach(f=>f(delta,'local'));}
     },onChanged:{addListener:f=>changes.push(f)}}};
@@ -52,6 +52,29 @@ const html = `<main style="background:#f7f8fa">
    assert(inactivityBox.x >= moodBox.x + moodBox.width, 'inactivity must be to the right of emoji');
    assert(Math.abs((inactivityBox.y+inactivityBox.height/2)-(moodBox.y+moodBox.height/2)) < 2, 'same row');
    assert.equal(await page.evaluate(()=>IXCOpa.VERSAO),'2.22.0');
+   const status = value => page.evaluate(value => new Promise(resolve => runtimeListeners.find(fn => fn({type:'TERMOFY_STATUS_COMMAND',value},{},resolve) === true)),value);
+   for(const [level,category] of [[0,'desconhecido'],[1,'furioso'],[2,'bravo'],[3,'neutro'],[4,'satisfeito'],[5,'encantado']]) {
+    assert.equal((await status(String(level))).success,true);
+    assert.equal(await page.locator('[itemid="chat1"] .ixc-selo').getAttribute('data-categoria'),category);
+    assert.equal(await page.evaluate(()=>Object.keys(saved.termofyMoodOverrides).join(',')),'chat1');
+   }
+   // A different open conversation must receive its own override only.
+   await page.evaluate(()=>{
+    document.querySelector('[data-customer-service-id]').dataset.customerServiceId='chat2';
+    const card=document.querySelector('[itemid="chat1"]').cloneNode(true);
+    card.setAttribute('itemid','chat2');card.querySelector('.ixc-selo')?.remove();
+    document.querySelector('[data-tutorial="customer-service-list"] ul').append(card);
+   });
+   assert.equal((await status('1')).success,true);
+   assert.equal(await page.locator('[itemid="chat2"] .ixc-selo').getAttribute('data-categoria'),'furioso');
+   assert.equal(await page.locator('[itemid="chat1"] .ixc-selo').getAttribute('data-categoria'),'encantado');
+   assert.equal((await status('read')).success,true);
+   assert.equal(await page.evaluate(()=>Object.keys(saved.termofyMoodOverrides).join(',')),'chat1');
+   assert.equal(await page.locator('[itemid="chat1"] .ixc-selo').getAttribute('data-categoria'),'encantado');
+   await page.evaluate(()=>{document.querySelector('[data-customer-service-id]').dataset.customerServiceId='chat1';document.querySelector('[itemid="chat2"]').remove();});
+   assert.equal((await status('read')).success,true);
+   assert.equal(await page.locator('[itemid="chat1"] .ixc-selo').getAttribute('data-categoria'),'satisfeito');
+
    assert.equal(await page.evaluate(()=>menuOpens),0,'saved pending=false must prevent startup action');
    assert.equal(await page.locator('.ixc-selo').getAttribute('data-categoria'),'satisfeito');
    await page.waitForSelector('.opa-groups-head');

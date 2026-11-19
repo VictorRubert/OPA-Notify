@@ -24,7 +24,7 @@ function setup() {
       update: async (...args) => actions.push(['tab', ...args]),
       sendMessage: async (id, message) => {
         if (id === 4) throw Error('Protected page');
-        messages.push({id, ...message}); return {ready:true,success:true,version:'1.6.11'};
+        messages.push({id, ...message}); return {ready:true,success:true,version:'1.6.12'};
       }
     },
     scripting: {executeScript:async args => {injections.push(args); throw Error('Protected page');}},
@@ -133,7 +133,7 @@ test('Notification click opens the new-domain source tab',async()=>{
 
 test('Visual simulations report delivery failures instead of claiming success',async()=>{
  const s=setup();
- s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.11'}:{success:false,error:'Card render failed'};
+ s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.12'}:{success:false,error:'Card render failed'};
  s.ctx.args=[s.attendance,{tab:{id:1}},{visualEnabled:true,soundEnabled:false},'received',true];
  await assert.rejects(vm.runInContext('announceAttendance(...args)',s.ctx),/Card render failed/);
 });
@@ -152,7 +152,7 @@ test('Simulation chooses the active new-domain tab without relying on the native
 test('Missing Opa tab diagnostic includes running version and host, without URL parameters',async()=>{
  const s=setup();s.chrome.tabs.query=async filter=>filter.active?[{id:9,url:'https://other.example/path?secret=private'}]:[];
  const result=await vm.runInContext('testAlert("received")',s.ctx);
- assert.equal(result.success,false);assert.match(result.error,/1.6.11/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
+ assert.equal(result.success,false);assert.match(result.error,/1.6.12/);assert.match(result.error,/other.example/);assert(!result.error.includes('private'));
 });
 function queueScenario(){
  const s=setup();let time=1000000;
@@ -206,7 +206,7 @@ test('Departure cards are delivered to other Opa tabs as well as ordinary sites'
  assert.equal(s.session['lastDelivery:finished'].system,'delivered');
 });
 test('Delivery diagnostics distinguish visual failure from successful system notification',async()=>{
- const s=setup();s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.11'}:{success:false,error:'Render failed'};
+ const s=setup();s.chrome.tabs.sendMessage=async(id,message)=>message.type==='OPA_NOTIFY_CONTENT_PING'?{ready:true,version:'1.6.12'}:{success:false,error:'Render failed'};
  s.ctx.console={...console,warn(){}};
  await s.announce({otherTabsEnabled:false},'finished');
  const delivery=s.session['lastDelivery:finished'];assert.equal(delivery.sourceVisual,'failed');assert.equal(delivery.system,'delivered');
@@ -422,4 +422,16 @@ test('Developer commands accept all combinations and reject the entire invalid c
  assert.equal(s.notifications.length,2);
  assert(s.messages.find(m=>m.eventType==='message').attendance.messageText);
  assert.equal(s.local.attendanceHistory,undefined);
+});
+
+test('Status commands parse independently from notification tests and reject invalid levels',()=>{
+ const s=setup();
+ for(const value of ['read','0','1','2','3','4','5']){
+  s.ctx.command='status '+value;
+  assert.equal(vm.runInContext('parseStatusCommand(command)',s.ctx),value);
+ }
+ for(const value of ['status','status 6','status 1 2','status reading','test 1']){
+  s.ctx.command=value;
+  assert.equal(vm.runInContext('parseStatusCommand(command)',s.ctx),null);
+ }
 });
