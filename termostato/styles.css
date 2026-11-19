@@ -1,0 +1,333 @@
+/* Termômetro de humor – tudo prefixado com .ixc-humor para não colidir com o Opa
+   nem com outras extensões. Usa as variáveis de tema do Opa quando existem. */
+
+.ixc-humor {
+  --ixc-humor-cor: #9e9e9e;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin: 4px auto 0;
+  padding: 0 12px 0 8px;
+  border-radius: 15px;
+  border: 1px solid var(--gray-400, rgba(127, 127, 127, 0.35));
+  background: var(--gray-100, rgba(127, 127, 127, 0.08));
+  color: var(--gray-1000, inherit);
+  font-size: 13px;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+  transition: border-color 0.3s ease;
+  border-left: 4px solid var(--ixc-humor-cor);
+}
+
+/* centraliza dentro do espaço vazio do cabeçalho */
+.dialog_dados > .cabecalho > div:has(> .ixc-humor) {
+  display: flex;
+  justify-content: center;
+}
+
+.ixc-humor__emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ixc-humor__barra {
+  position: relative;
+  width: 90px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.25);
+}
+
+.ixc-humor__fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 4px;
+  background: var(--ixc-humor-cor);
+  transition: width 0.4s ease, background-color 0.4s ease;
+}
+
+.ixc-humor[data-categoria="desconhecido"] .ixc-humor__fill {
+  background: repeating-linear-gradient(45deg, #9e9e9e 0 6px, #bdbdbd 6px 12px);
+}
+
+.ixc-humor[data-categoria="estressado"] .ixc-humor__emoji {
+  animation: ixc-humor-pulse 1.6s ease-in-out infinite;
+}
+
+.ixc-humor__label {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ixc-humor-cor);
+}
+
+@keyframes ixc-humor-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+/* Tooltip com o "porquê" da nota */
+.ixc-humor__tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: 380px;
+  max-width: 60vw;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #262626;
+  color: #eee;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  white-space: normal;
+}
+
+.ixc-humor:hover .ixc-humor__tooltip {
+  display: block;
+}
+
+.ixc-humor__tooltip ul {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+
+.ixc-humor__tooltip li {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ixc-humor__tooltip small {
+  display: block;
+  color: #aaa;
+  font-size: 11px;
+}
+
+.ixc-humor__nota {
+  flex: 0 0 34px;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 0;
+  height: fit-content;
+}
+.ixc-humor__nota--neg { background: #e53935; color: #fff; }
+.ixc-humor__nota--neu { background: #fbc02d; color: #222; }
+.ixc-humor__nota--pos { background: #43a047; color: #fff; }
+.ixc-humor__nota--q   { background: #757575; color: #fff; }
+
+.ixc-humor__media {
+  color: #aaa;
+  font-size: 11px;
+  text-align: right;
+}
+
+/* =========================================================
+   SELO NA LISTA DE ATENDIMENTOS (emoji + barrinha vertical)
+   ========================================================= */
+
+/* o selo flutua à esquerda da linha do horário; o clearfix garante que o card cresça junto */
+.ixc-selo {
+  --ixc-humor-cor: #9e9e9e;
+  display: inline-flex;
+  align-self: flex-start;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+  margin: 3px 0 2px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  cursor: help;
+  line-height: 1;
+}
+
+.ixc-selo__emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ixc-selo__barra {
+  position: relative;
+  display: block;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* preenche de baixo para cima */
+.ixc-selo__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--ixc-humor-cor);
+  transition: height 0.4s ease, background-color 0.4s ease;
+}
+
+.ixc-selo[data-categoria="desconhecido"] .ixc-selo__fill {
+  background: repeating-linear-gradient(0deg, #9e9e9e 0 3px, #bdbdbd 3px 6px);
+}
+
+.ixc-selo[data-categoria="estressado"] .ixc-selo__emoji {
+  animation: ixc-humor-pulse 1.6s ease-in-out infinite;
+}
+
+.ixc-humor__tooltip.ixc-selo__tooltip {
+  position: fixed;
+  transform: none;
+  z-index: 100000;
+  width: 340px;
+}
+
+.ixc-selo__tooltip-titulo {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+/* "?" cinza para não mapeado (o emoji ❓ é vermelho e não aceita cor) */
+.ixc-selo[data-categoria="desconhecido"] .ixc-selo__emoji,
+.ixc-humor[data-categoria="desconhecido"] .ixc-humor__emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #9e9e9e;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: Arial, sans-serif;
+}
+.ixc-humor[data-categoria="desconhecido"] .ixc-humor__emoji {
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+}
+
+/* =========================================================
+   🚀 MUITO SATISFEITO: barra arco-íris animada + brilho
+   ========================================================= */
+@keyframes ixc-arco-iris {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 0% 200%; }
+}
+@keyframes ixc-brilho {
+  0%, 100% { box-shadow: 0 0 3px 1px rgba(124, 77, 255, 0.55), 0 0 0 0 rgba(0, 229, 255, 0); }
+  50%      { box-shadow: 0 0 8px 3px rgba(0, 229, 255, 0.85), 0 0 14px 4px rgba(255, 64, 129, 0.45); }
+}
+@keyframes ixc-decolar {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25%      { transform: translate(1px, -2px) rotate(-6deg); }
+  50%      { transform: translate(0, -3px) rotate(0deg); }
+  75%      { transform: translate(-1px, -2px) rotate(6deg); }
+}
+
+.ixc-selo[data-categoria="encantado"] .ixc-selo__fill,
+.ixc-humor[data-categoria="encantado"] .ixc-humor__fill {
+  background: linear-gradient(0deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #d500f9, #ff1744, #ff9100);
+  background-size: 100% 200%;
+  animation: ixc-arco-iris 1.8s linear infinite;
+}
+.ixc-humor[data-categoria="encantado"] .ixc-humor__fill {
+  background: linear-gradient(90deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #d500f9, #ff1744, #ff9100);
+  background-size: 200% 100%;
+}
+.ixc-selo[data-categoria="encantado"] .ixc-selo__barra,
+.ixc-humor[data-categoria="encantado"] .ixc-humor__barra {
+  animation: ixc-brilho 1.6s ease-in-out infinite;
+}
+.ixc-selo[data-categoria="encantado"] .ixc-selo__emoji,
+.ixc-humor[data-categoria="encantado"] .ixc-humor__emoji {
+  display: inline-block;
+  animation: ixc-decolar 1.4s ease-in-out infinite;
+}
+.ixc-humor__nota--top {
+  background: linear-gradient(135deg, #7c4dff, #00b0ff);
+  color: #fff;
+}
+
+/* quem prefere menos movimento (configuração do sistema) vê a versão parada */
+@media (prefers-reduced-motion: reduce) {
+  .ixc-selo *, .ixc-humor * { animation: none !important; }
+}
+
+/* =========================================================
+   BALÃO (tooltip) – cores TRAVADAS
+   O CSS do Opa pinta textos de li/span/div com as variáveis do tema
+   (cinza-escuro no tema escuro), o que deixava o texto ilegível.
+   O balão tem fundo próprio, então fixamos fundo + texto com !important:
+   fica igual (e legível) nos temas claro e escuro do Opa.
+   ========================================================= */
+.ixc-humor__tooltip {
+  background: #1f2633 !important;
+  border: 1px solid #5b6678 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  text-shadow: none !important;
+}
+.ixc-humor__tooltip,
+.ixc-humor__tooltip b,
+.ixc-humor__tooltip ul,
+.ixc-humor__tooltip li,
+.ixc-humor__tooltip li > span:not(.ixc-humor__nota),
+.ixc-humor__tooltip > div:not(.ixc-selo__tooltip-titulo) {
+  color: #f1f4f8 !important;
+  background-color: transparent;
+}
+.ixc-humor__tooltip small,
+.ixc-humor__tooltip .ixc-humor__media {
+  color: #b9c2cf !important;
+}
+.ixc-humor__tooltip li {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  list-style: none !important;
+  margin: 0 !important;
+}
+.ixc-selo__tooltip-titulo {
+  color: var(--ixc-tt-cor, #f1f4f8) !important;
+}
+.ixc-humor__tooltip .ixc-humor__nota--neg { background: #e53935 !important; color: #fff !important; }
+.ixc-humor__tooltip .ixc-humor__nota--neu { background: #fbc02d !important; color: #222 !important; }
+.ixc-humor__tooltip .ixc-humor__nota--pos { background: #43a047 !important; color: #fff !important; }
+.ixc-humor__tooltip .ixc-humor__nota--q   { background: #8a94a3 !important; color: #fff !important; }
+.ixc-humor__tooltip .ixc-humor__nota--top { background: linear-gradient(135deg, #7c4dff, #00b0ff) !important; color: #fff !important; }
+
+/* Slot do termômetro no cabeçalho do Opa novo (entre o nome e os botões) */
+.ixc-humor-slot {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+.ixc-humor-slot .ixc-humor {
+  margin: 0;
+}
+
+/* Enquanto a extensão marca a pendência, o menu do Opa abre INVISÍVEL
+   (continua funcionando; só não pisca na tela) */
+html.ixc-menu-oculto [data-radix-popper-content-wrapper],
+html.ixc-menu-oculto [role="menu"] {
+  opacity: 0 !important;
+  transition: none !important;
+  animation: none !important;
+}

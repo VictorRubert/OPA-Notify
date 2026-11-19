@@ -23,6 +23,7 @@
     <a href="#labels">Etiquetas</a>
     <a href="#visual">Visual</a>
     <a href="#sound">Som</a>
+    <a href="#termostato">Termostato</a>
     <a href="#maintenance">Manutenção</a>
   </nav>
 
@@ -242,6 +243,23 @@
 
     </section>
 
+    <section class="card" id="termostato">
+      <h2>Termostato</h2>
+      <label class="toggle-row">
+        <span><strong>Ativar Termostato</strong><small>Humor e pendência externa na interface nova do Opa. Requer Opa!Notify ativo.</small></span>
+        <input type="checkbox" id="termostatoEnabled"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <label class="toggle-row">
+        <span><strong>Exibir humor do cliente</strong><small>Analisa as mensagens carregadas da conversa aberta e mostra o selo nos cartões.</small></span>
+        <input type="checkbox" id="termostatoHumorEnabled"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <label class="toggle-row">
+        <span><strong>Marcar pendência externa automaticamente</strong><small>No atendimento aberto, marca a partir de 5 minutos, até 8 horas, conforme as regras do Termostato. Não desmarca pendências.</small></span>
+        <input type="checkbox" id="termostatoPendingEnabled"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <p class="hint">Termostato 2.22.0 integrado. Desative a extensão Termostato separada para evitar execução duplicada.</p>
+    </section>
+
     <section class="card" id="maintenance">
       <h2>Manutenção</h2>
       <button class="button clear-highlight" id="clearHighlight" type="button" disabled>Remover marcação atual</button>
@@ -253,7 +271,7 @@
     <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
   </main>
 
-  <footer>Opa!Notify 1.6.7</footer>
+  <footer>Opa!Notify 1.6.8</footer>
   <script src="../content/tag-settings.js"></script>
   <script src="popup.js"></script>
 </body>

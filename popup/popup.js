@@ -1,5 +1,8 @@
 const DEFAULTS = {
   enabled: true,
+  termostatoEnabled: true,
+  termostatoHumorEnabled: true,
+  termostatoPendingEnabled: true,
   visualEnabled: true,
   otherTabsEnabled: true,
   systemNotificationsEnabled: true,
@@ -45,6 +48,7 @@ async function initialize() {
 
 function cacheElements() {
   for (const id of [
+    'termostatoEnabled', 'termostatoHumorEnabled', 'termostatoPendingEnabled',
     'enabled', 'visualEnabled', 'otherTabsEnabled', 'systemNotificationsEnabled', 'colorHighlightEnabled', 'highlightFillMode', 'motivoHighlightEnabled', 'motivoBlinkEnabled', 'motivoChargeEnabled', 'notifyOnFinished', 'soundEnabled',
     'volume', 'volumeValue', 'soundPreset', 'toastDuration', 'toastDurationValue', 'toastPosition',
     'customSoundArea', 'customSoundFile', 'customSoundName',
@@ -61,6 +65,12 @@ function cacheElements() {
 }
 
 function bindEvents() {
+  for (const key of ['termostatoEnabled', 'termostatoHumorEnabled', 'termostatoPendingEnabled']) {
+    elements[key].addEventListener('change', async () => {
+      await chrome.storage.local.set({ [key]: elements[key].checked });
+      showFeedback('Configuração salva.');
+    });
+  }
   for (const key of ['groupByTag', 'notifyClientMessages', 'messageScope', 'tagMode']) {
     elements[key].addEventListener('change', async () => {
       updateTagControls();
@@ -111,6 +121,9 @@ async function loadSettings() {
   elements.tagMode.value = settings.tagMode;
   for (const key of ['groupTags', 'priorityTags']) renderTagList(key, settings[key]);
   updateTagControls();
+  for (const key of ['termostatoEnabled', 'termostatoHumorEnabled', 'termostatoPendingEnabled']) {
+    elements[key].checked = settings[key];
+  }
   elements.enabled.checked = settings.enabled;
   elements.visualEnabled.checked = settings.visualEnabled;
   elements.otherTabsEnabled.checked = settings.otherTabsEnabled;

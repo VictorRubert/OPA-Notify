@@ -337,12 +337,22 @@ async function popup(browser) {
   }
   assert.equal(await page.getByRole('heading',{name:'Manutenção'}).count(),1);
   assert.equal(await page.locator('#clearHighlight').count(),1);
-  assert.equal(await page.locator('.section-nav a').count(),5);
+  assert.equal(await page.locator('.section-nav a').count(),6);
   const sectionVisible = selector => page.locator(selector).evaluate(el => {
     const bounds = el.getBoundingClientRect();
     const viewport = document.querySelector('main').getBoundingClientRect();
     return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
   });
+  await page.locator('.section-nav a[href="#termostato"]').click();
+  assert(await sectionVisible('#termostato'));
+  for (const id of ['termostatoEnabled','termostatoHumorEnabled','termostatoPendingEnabled']) {
+    assert.equal(await page.locator('#'+id).isChecked(),true);
+    await page.locator('label').filter({has:page.locator('#'+id)}).click();
+  }
+  await page.reload();
+  for (const id of ['termostatoEnabled','termostatoHumorEnabled','termostatoPendingEnabled']) {
+    assert.equal(await page.locator('#'+id).isChecked(),false);
+  }
   await page.locator('.section-nav a[href="#sound"]').click();
   assert(await sectionVisible('#sound'));
   await page.locator('.section-nav a[href="#labels"]').click();

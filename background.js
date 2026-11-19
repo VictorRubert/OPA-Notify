@@ -1,5 +1,5 @@
 importScripts('content/tag-settings.js');
-const EXTENSION_VERSION = '1.6.7';
+const EXTENSION_VERSION = '1.6.8';
 const SUPPORT_ORIGINS = ['https://suporte.ixcsoft.com.br', 'https://opasuiteapi.ixcsoft.com.br'];
 const SUPPORT_URL_PATTERNS = SUPPORT_ORIGINS.map(origin => `${origin}/*`);
 function isSupportUrl(value) {
@@ -15,6 +15,9 @@ const MAX_ATTENDANCE_HISTORY = 5;
 
 const DEFAULT_SETTINGS = Object.freeze({
   enabled: true,
+  termostatoEnabled: true,
+  termostatoHumorEnabled: true,
+  termostatoPendingEnabled: true,
   visualEnabled: true,
   otherTabsEnabled: true,
   systemNotificationsEnabled: true,

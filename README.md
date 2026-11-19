@@ -1,4 +1,4 @@
-# Opa!Notify v1.6.7
+# Opa!Notify v1.6.8
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -31,17 +31,20 @@ Na interface nova, um cartão que aparece em **Meus atendimentos** após a leitu
 3. Clique em **Carregar sem compactação** e selecione a pasta que contém `manifest.json`.
 4. Abra o Opa e selecione **Meus atendimentos**.
 
+**Termostato integrado:** desative a extensão Termostato separada e recarregue o Opa para evitar execução duplicada. O cache da instalação separada não migra automaticamente. Os originais estão preservados em `termostato/`; consulte a [manutenção da integração](integrations/README.md).
+
 Para atualizar uma instalação manual, substitua os arquivos na pasta utilizada, recarregue a extensão e a aba do Opa. A primeira leitura após cada recarga cria uma base silenciosa, sem avisar sobre atendimentos já existentes.
 
 ## Configurações
 
-O popup reúne o estado da fila, os cinco atendimentos recentes e atalhos para Notificações, Etiquetas, Visual, Som e Manutenção. Os controles têm foco visível para uso por teclado e respeitam a preferência de movimento reduzido.
+O popup reúne o estado da fila, os cinco atendimentos recentes e atalhos para Notificações, Etiquetas, Visual, Som, Termostato e Manutenção. Os controles têm foco visível para uso por teclado e respeitam a preferência de movimento reduzido.
 
 - **Notificações:** ativação, aviso visual, duração de 5 a 30 segundos, posição em um dos quatro cantos (padrão: superior esquerdo), avisos em outras abas, notificações do sistema e aviso de atendimento finalizado. Os canais podem ser ativados ou desativados separadamente.
 - **Avisar novas mensagens do cliente** vem ligado para todos os atendimentos nas novas instalações. A atualização respeita a preferência já salva. Escolha todos os atendimentos ou somente etiquetas prioritárias. Na interface nova, a extensão lê o identificador e a direção da mensagem quando o Opa os disponibiliza. Se várias mensagens chegam entre duas leituras e o Opa expõe apenas a última, pode haver um único aviso. O cartão mostra a empresa e o texto recebido; fotos, áudios e vídeos aparecem como “Enviou uma foto”, “Enviou um áudio” e “Enviou um vídeo”. Avisos de mensagem não tocam som nem geram notificações do sistema. Quando o Opa não disponibiliza o texto, mostra “Mensagem recebida”. Na antiga, a extensão acompanha o indicador de não lida e o contador quando disponível.
 - **Agrupar por etiqueta** começa desligado. Ao ativar, **Somente as listadas** já vem preenchido. A fila usa as etiquetas **AGENTE SMITH** na ordem **AJUDA → FINALIZADO → AJUDANDO → PAUSA → ASSUMIDO**, de cima para baixo. Os demais atendimentos ficam em **Sem grupo**. Você pode editar as listas e a ordem no popup.
 - **Visual:** destaque roxo, tipo de preenchimento e controles de destaque, pisca e pop-up do motivo.
 - **Som:** escolha do áudio, arquivo personalizado e volume.
+- **Termostato:** humor do cliente e pendência externa automática na interface nova. Os dois recursos começam ligados e podem ser desativados separadamente. Desativar Opa!Notify também pausa o Termostato. O humor analisa as cinco últimas mensagens carregadas da conversa aberta; os outros cartões mostram o último resultado salvo. A pendência segue as regras originais de tempo (5 minutos a 8 horas), etiquetas e estado manual. Sem “Nesta fila”, utiliza a abertura como referência.
 - **Manutenção:** remoção da marcação atual, **Refazer leitura inicial**, que recria a base sem apagar o histórico, e **Copiar diagnóstico**.
 
 ## Permissões e limites

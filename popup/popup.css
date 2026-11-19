@@ -92,6 +92,7 @@ body:has(#notifications:target) .section-nav a[href="#notifications"],
 body:has(#labels:target) .section-nav a[href="#labels"],
 body:has(#visual:target) .section-nav a[href="#visual"],
 body:has(#sound:target) .section-nav a[href="#sound"],
+body:has(#termostato:target) .section-nav a[href="#termostato"],
 body:has(#maintenance:target) .section-nav a[href="#maintenance"] {
   color: var(--text);
   background: var(--surface-raised);

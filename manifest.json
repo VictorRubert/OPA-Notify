@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Opa!Notify",
   "short_name": "Opa!Notify",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "description": "Alertas de atendimentos e mensagens de clientes, agrupamento por etiqueta e destaques na fila do Opa! Suite.",
   "minimum_chrome_version": "111",
   "permissions": [
@@ -45,6 +45,28 @@
         "content/tag-settings.js",
         "content/groups.js",
         "content/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://suporte.ixcsoft.com.br/*",
+        "https://opasuiteapi.ixcsoft.com.br/*"
+      ],
+      "js": [
+        "termostato/src/config.js",
+        "termostato/src/storage.js",
+        "termostato/src/opa-dom.js",
+        "termostato/src/pendencia.js",
+        "termostato/src/humor-regras.js",
+        "termostato/src/humor.js",
+        "termostato/src/termometro.js",
+        "termostato/src/lista.js",
+        "integrations/termostato.js",
+        "termostato/src/main.js"
+      ],
+      "css": [
+        "termostato/styles.css"
       ],
       "run_at": "document_idle"
     }
