@@ -83,6 +83,54 @@ IXCOpa.humor = (function () {
     let colaboracao = false;    // "segue o print", "já testei"... → satisfação começa aqui
     let menorTermo = 0;         // termo mais negativo da mensagem (para separar relato de frustração)
 
+    // 00) Contexto da frase: marca trechos (fala de terceiro, hipótese, citação, antes do "mas")
+    const zonas = [];
+    for (const c of regras.contextos || []) {
+      c.re.lastIndex = 0;
+      let m;
+      while ((m = c.re.exec(texto))) {
+        if (!m[0].trim()) { c.re.lastIndex++; continue; }
+        zonas.push({ ini: m.index, fim: m.index + m[0].length, ...c, trecho: m[0].trim() });
+        if (c.entende) mapeada = true; // relato de terceiro/citação = mensagem entendida (😐), não "?"
+      }
+    }
+    if (regras.contraste) {
+      regras.contraste.lastIndex = 0;
+      let m, ultimo = -1;
+      while ((m = regras.contraste.exec(texto))) ultimo = m.index;
+      if (ultimo > 0) {
+        zonas.push({ ini: 0, fim: ultimo, tipo: 'antes do "mas"', fatorNeg: regras.fatorAntesDoContraste,
+          fatorPos: regras.fatorAntesDoContraste, manterRevolta: true });
+      }
+    }
+    const zonasAvisadas = new Set();
+    const ajustarPorContexto = (p, pesoOriginal, pos, termo) => {
+      let r = p;
+      for (const z of zonas) {
+        if (pos < z.ini || pos >= z.fim) continue;
+        if (r < 0 && z.manterRevolta && pesoOriginal <= regras.pesoRevolta) continue;
+        const f = r < 0 ? z.fatorNeg : z.fatorPos;
+        if (f === 1) continue;
+        r *= f;
+        if (!zonasAvisadas.has(z.tipo + termo)) {
+          zonasAvisadas.add(z.tipo + termo);
+          sinais.push(`contexto: ${z.tipo} → "${termo}" x${f}`);
+        }
+      }
+      return Math.round(r * 100) / 100;
+    };
+
+    // 0a) Desculpas do próprio cliente ("perdão pela demora") → cordialidade, não reclamação
+    for (const re of regras.padroesDesculpas || []) {
+      re.lastIndex = 0;
+      texto = texto.replace(re, (m) => {
+        mapeada = true;
+        positivo += regras.pesoDesculpa;
+        sinais.push(`desculpa do cliente: "${m.trim()}" (+${regras.pesoDesculpa})`);
+        return ' '.repeat(m.length);
+      });
+    }
+
     // 0) Operações no sistema ("remover cadastros do cliente") → neutras
     for (const re of regras.padroesOperacionais || []) {
       re.lastIndex = 0;
@@ -122,6 +170,7 @@ IXCOpa.humor = (function () {
           p = regras.pesoNegativoNegado;
           sinais.push(`negação+"${termo}" (+${p})`);
         }
+        p = ajustarPorContexto(p, peso, offset + antes.length, termo);
         if (p > 0) positivo += p;
         if (p < 0) negativo += p;
         if (p <= regras.pesoRevolta) revolta = true;

@@ -56,7 +56,7 @@ IXCOpa.HUMOR_REGRAS = {
     ['nenhum retorno', -1.5], ['nenhuma resposta', -1.5], ['nenhuma novidade', -1.5], ['nenhuma posicao', -1.5],
     ['vai demorar muito', -1.5], ['quanto tempo mais', -1.5], ['qual o prazo', -0.5], ['tem previsao', -0.5],
     ['previsao', -0.3], ['prazo', -0.3], ['cade', -1], ['oi?', -0.3], ['alo', -0.5],
-    ['demora', -1], ['demorando', -1], ['demorado', -1], ['muito tempo', -1],
+    ['demora', -1], ['demoram', -1], ['demoram muito', -1.2], ['demorando muito', -1.2], ['demorando', -1], ['demorado', -1], ['muito tempo', -1],
     ['esperando', -0.3], ['urgente', -1.2], ['urgencia', -1.2],
     ['parado', -0.6], ['prejuizo', -1.5], ['fora do ar', -0.8], ['sem sistema', -0.8],
     ['nao aguento', -1.5], ['cansad*', -1], ['impossivel', -1],
@@ -105,7 +105,7 @@ IXCOpa.HUMOR_REGRAS = {
     // falha técnica: o cliente está RELATANDO um problema → nota baixa, mas sozinho fica 😐
     // (também servem de "contexto negativo" para detectar sarcasmo)
     ['caiu', -0.6], ['caiu de novo', -1], ['parou', -0.6], ['parou de novo', -1], ['parou tudo', -1],
-    ['travou', -0.6], ['travando', -0.6], ['sem internet', -0.6], ['sem acesso', -0.6],
+    ['travou', -0.6], ['travando', -0.6], ['travad*', -0.6], ['sem internet', -0.6], ['sem acesso', -0.6],
     ['dias pra', -0.8], ['dias para', -0.8], ['horas pra', -0.8], ['horas para', -0.8],
 
     // ---------- 🙃 Sarcasmo explícito (sempre irônico) ----------
@@ -159,6 +159,9 @@ IXCOpa.HUMOR_REGRAS = {
 
     // ---------- 🟡 Neutro (0) – só marca como "entendida" ----------
     // encerramento educado: o cliente não precisa de mais nada
+    // o cliente assumindo o próprio erro = cordialidade
+    ['foi erro meu', 0.3], ['erro meu', 0.3], ['minha culpa', 0.3], ['culpa minha', 0.3], ['falha minha', 0.3],
+    ['eu que errei', 0.3], ['fui eu', 0.2], ['me confundi', 0.2], ['me enganei', 0.2],
     ['era so isso', 0.7], ['e so isso', 0.5], ['so isso mesmo', 0.5], ['nao preciso de mais nada', 0.7],
     ['nao precisa mais', 0.5], ['tudo resolvido', 1], ['pode encerrar', 0.5], ['pode finalizar', 0.5],
     ['ok', 0], ['certo', 0], ['sim', 0], ['isso', 0], ['entendi', 0], ['entendido', 0],
@@ -172,6 +175,45 @@ IXCOpa.HUMOR_REGRAS = {
   // "remover cadastros do cliente", "remoção de produtos", "cancelar o contrato do cliente",
   // "excluir a fatura", "processar os boletos"… são pedidos de operação, não estresse.
   // O trecho é neutralizado ANTES dos termos (então "cancelar" ali dentro não pesa).
+  // ---------- DESCULPAS DO CLIENTE (cordialidade) ----------
+  // "perdão pela demora", "desculpa o atraso", "foi mal a confusão": o cliente está se
+  // desculpando pelo PRÓPRIO atraso/erro. A "demora" ali não é reclamação: o trecho todo
+  // é neutralizado e conta como cordialidade (pesoDesculpa). Revolta no resto da frase
+  // continua valendo ("desculpa, mas isso é um absurdo" segue vermelho), e um "mas"
+  // depois da desculpa a interrompe ("desculpa, mas essa demora..." é reclamação).
+  // ---------- CONTEXTO DA FRASE ----------
+  // Antes de pesar as palavras, cada trecho da mensagem é classificado. Um termo dentro
+  // de um trecho tem seu peso multiplicado (fatorNeg para negativos, fatorPos para positivos).
+  // manterRevolta: termos de revolta (peso <= pesoRevolta) NÃO são reduzidos nesse trecho.
+  contextos: [
+    {
+      // O provedor contando o que o CLIENTE DELE disse/sente: não é o humor de quem está no chat.
+      // O trecho termina quando quem está no chat volta a falar por si ("e eu concordo", "pra mim").
+      tipo: 'fala de terceiro', fatorNeg: 0.3, fatorPos: 0.5, manterRevolta: false, entende: true,
+      re: /(^|[\s,.;!?])((o|a|os|as|meu|minha|meus|minhas|nosso|nossa|nossos|nossas|um|uma|esse|essa|este|esta)\s+)?(cliente|clientes|assinante|assinantes|usuario|usuarios|consumidor|consumidores|tecnico|tecnicos|chefe|gerente|diretor|dono|financeiro)(\s+final|\s+finais)?\s+((\S+\s+){0,2}?)(disse|diz|dizem|disseram|falou|fala|falam|falaram|reclam\w*|esta|estao|ficou|ficaram|achou|acha|acham|xing\w*|quer|querem|ligou|ligaram|mandou|mandaram|relat\w*|informou|alega\w*|abriu|abriram|ameac\w*)\b[^.;!?]*?(?=[.;!?]|\s(e\s+)?eu\s|\s(e\s+)?(nos|a gente)\s|\s(e\s+)?(concordo|tambem acho)\b|,?\s*(pra|para) mim\b|$)/g,
+    },
+    {
+      // Hipótese/condição no início de uma oração: "se não funcionar, te aviso"
+      tipo: 'hipótese', fatorNeg: 0.3, fatorPos: 0.6, manterRevolta: true,
+      re: /(^|[,.;!?])\s*(se|caso|e se|para nao|pra nao|para evitar|pra evitar|senao|na hipotese de)\s[^,.;!?]*/g,
+    },
+    {
+      // Texto citado de tela/erro: entre aspas, ou depois de "erro:", "mensagem:"
+      tipo: 'citação de erro', fatorNeg: 0, fatorPos: 1, manterRevolta: false, entende: true,
+      re: /["“”'‘’][^"“”'‘’]{2,80}["“”'‘’]|\b(erro|mensagem|aviso|alerta|retorno|log)\s*:\s*[^.;!?]*/g,
+    },
+  ],
+  // Contraste: o que vem ANTES do último "mas/porém/só que" pesa menos (o que vale é o depois).
+  // "não funcionou, mas obrigado pela ajuda" → o agradecimento prevalece.
+  contraste: /\s(mas|porem|entretanto|contudo|no entanto|so que(?!\s+nao))\s/g,
+  fatorAntesDoContraste: 0.6,
+
+  padroesDesculpas: [
+    /\b(perdao|perdoa|perdoe|me perdoe|desculp\w*|foi mal|sinto muito|lamento)[\s,]+((pela|pelo|pelas|pelos|por|a|o|as|os|essa|esse|minha|meu|toda|todo|tanta|tanto|qualquer)\s+){0,3}((?!(mas|porem|so que|entretanto|contudo|agora)\b)\S+\s+){0,2}?(demor\w*|atras\w*|delay|ausencia|sumi\w*|resposta|retorno|transtorno\w*|incomodo\w*|confus\w*|erro\w*|engano\w*|equivoco\w*|bagunca|falha\w*|esquecimento|vacilo|mensage\w*|insistencia|horario|hora)/g,
+    /\b(desculp\w*|perdao|foi mal)[\s,]+(eu\s+)?(demorei|atrasei|sumi|esqueci|me enganei|errei|me confundi|nao vi|nao respondi|estava em reuniao|estava ocupad\w*|estava sem sinal)/g,
+  ],
+  pesoDesculpa: 0.4,
+
   padroesOperacionais: [
     /\b(cancel(ar|ei|ou|amento)|remov(er|i|eu)|remocao|exclu(ir|i|iu|sao)|apag(ar|uei)|delet(ar|ei)|desativ(ar|ei|acao)|bloque(ar|ei|io)|suspen(der|di|sao)|estorn(ar|ei|o)|inativ(ar|ei)|transferi(r|ncia)|alter(ar|acao)|trocar|migr(ar|acao)|process(ar|amento))\s+((de|do|da|dos|das|o|a|os|as|um|uma|esse|essa|esses|essas|este|esta|meu|minha|nosso|nossa|todos|todas)\s+){0,3}(\S+\s+){0,2}?(cadastr\w*|contrat\w*|client\w*|produt\w*|plan\w*|bolet\w*|titul\w*|fatur\w*|login\w*|tarefa\w*|ordem|ordens|os|servic\w*|registr\w*|usuari\w*|ite(m|ns)|nota\w*|cobranc\w*|parcela\w*|equipament\w*|onu\w*|conex\w*|lancament\w*|assinant\w*|pedido\w*|remessa\w*|retorno\w*|arquivo\w*|regra\w*|perfil\w*|carne\w*|pix|debito\w*|desconto\w*|venda\w*)/g,
   ],

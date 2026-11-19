@@ -1,4 +1,4 @@
-# 🌡️ Termostato (v2.22.0)
+# 🌡️ Termostato (v2.24.0)
 
 Mede o humor do cliente e marca a pendência externa automaticamente no Opa.
 
@@ -92,6 +92,21 @@ atendente pediu.
 Colaboração dispara o gatilho positivo como o agradecimento. **Depois de estresse** (mensagem com
 nota -1,5 ou pior na janela), colaborar ajuda a média, mas só agradecimento/confirmação
 ("deu certo", "obrigado") tira do vermelho.
+
+### Contexto da frase
+Antes de pesar as palavras, o termômetro identifica em que tipo de trecho cada uma está:
+
+| Trecho | Exemplo | Efeito |
+|---|---|---|
+| Fala de terceiro | "o cliente disse que está um absurdo" | é o cliente *do provedor*, pesa 30% (até "e eu concordo") |
+| Hipótese | "se não funcionar, te aviso" | ainda não aconteceu, pesa 30% (ameaça condicional continua valendo) |
+| Citação de erro | aparece "acesso negado" / erro: falha… | texto da tela, não pesa |
+| Antes do "mas" | "não funcionou, mas obrigado" | o que vem depois do "mas" prevalece |
+| Desculpa do cliente | "perdão pela demora" | cordialidade, não reclamação |
+| Autoculpa | "foi erro meu", "minha culpa" | cordialidade |
+
+Os trechos ficam em `src/humor-regras.js` → `contextos`. O balão mostra quando um contexto
+atuou (ex.: `contexto: fala de terceiro → "absurdo" x0.3`).
 
 ### O que NÃO é estresse
 - **Operações no sistema** ("remover cadastros do cliente", "remoção de produtos", "cancelar o contrato

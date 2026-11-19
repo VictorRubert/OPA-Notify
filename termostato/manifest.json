@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Termostato – Humor do cliente e pendência externa no Opa",
   "description": "Mede o humor do cliente nas últimas mensagens e marca a pendência externa automaticamente no Opa.",
-  "version": "2.22.0",
+  "version": "2.24.0",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
