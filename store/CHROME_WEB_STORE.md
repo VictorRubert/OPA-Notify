@@ -31,6 +31,18 @@ O Termofy não exige conta própria e não envia o conteúdo dos atendimentos a 
 - [Captura do popup, 1280 × 800](termofy-popup-1280x800.png): interface real da extensão renderizada com empresas e protocolos fictícios. Use como captura de tela.
 - [Arte promocional, 1280 × 800](termofy-1280x800.png): ilustração das funções. Use apenas em um campo que aceite material promocional ilustrado; ela não representa uma captura literal do Opa.
 
+## Pacote para upload
+
+Use **`Termofy-v2.0.7-ChromeWebStore.zip`**. Ele é gerado a partir do ZIP da versão 2.0.7 já testada, com `manifest.json` na raiz e sem `termostato/manifest.json`, testes ou documentação interna. Os scripts e estilos do Termostato continuam no pacote; a pasta original do repositório não é alterada.
+
+Para recriar o pacote:
+
+```sh
+python3 store/build-store-package.py /workspace/releases/Termofy-v2.0.7.zip /workspace/releases/Termofy-v2.0.7-ChromeWebStore.zip
+```
+
+Envie o arquivo ZIP diretamente. Não compacte a pasta que contém o ZIP.
+
 ## Política de privacidade
 
 URL pública para colar no cadastro: **https://github.com/VictorRubert/OPA-Notify/blob/main/PRIVACY.md**

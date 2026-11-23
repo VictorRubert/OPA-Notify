@@ -38,7 +38,9 @@ recarregue o Opa antes de usar a integração.
    origem (não de arquivos editados). Registre a nova versão e hashes SHA-256.
 5. Execute `node termostato/tests/run-all.js`, `node --test tests/*.test.cjs`
    e `node tests/termostato.browser.cjs`, além dos testes de regressão da Notify.
-6. Aumente a versão da Notify e empacote a raiz com toda a pasta `termostato/`.
+6. Aumente a versão da Notify. Para a Chrome Web Store, empacote somente os
+   arquivos de execução com `manifest.json` na raiz; exclua
+   `termostato/manifest.json` usando `store/build-store-package.py`.
 
 Teste no Opa real antes de distribuir: os testes de navegador utilizam uma
 interface fictícia e APIs Chrome simuladas. Mudanças do fornecedor podem exigir
