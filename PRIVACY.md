@@ -1,8 +1,10 @@
 # Política de Privacidade do Termofy
 
-Última atualização em 19 de novembro de 2026.
+Última atualização em 23 de novembro de 2026.
 
 O Termofy é uma extensão para acompanhar a fila **Meus atendimentos** no Opa! Suite. Esta política descreve os dados acessados pela extensão, onde ficam armazenados e como são usados.
+
+As categorias de dados acessadas são **informações de identificação pessoal** (como nomes de clientes e atendentes), **comunicações pessoais** (mensagens e transcrições carregadas no Opa), **conteúdo do site** (como protocolos, etiquetas e horários dos atendimentos) e **atividade do usuário** no sentido de observar eventos de rede da fila do Opa. O acesso ocorre para acompanhar e priorizar os atendimentos no Opa! Suite. A extensão não registra cliques, teclado ou rolagem para análise de comportamento.
 
 ## Dados acessados e finalidade
 

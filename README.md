@@ -66,4 +66,6 @@ Os testes usam APIs Chrome e eventos de rede simulados; a integração deve ser 
 
 Consulte a [Política de Privacidade](PRIVACY.md).
 
+Os textos, a declaração de dados e as imagens para publicação estão em [store/CHROME_WEB_STORE.md](store/CHROME_WEB_STORE.md).
+
 O agrupamento e o acompanhamento de mensagens usam o Opa!Alert de JanineMilena como referência. [Licença MIT](LICENSE).
