@@ -36,6 +36,7 @@
   let additionalFilterWasActive = false;
   const queueDiagnostics = [];
   let newMetadata = new Map();
+  const pendingGroupMessages = new Set();
   const cursors = new Map();
   const visibleCandidates = new Map();
   const visibleBaseline = new Set();
@@ -113,6 +114,7 @@
     if (data.kind === 'message') {
       const item = newMetadata.get(data.id);
       if (item && data.cursor && personalListAvailable() && viewInitialized) {
+        trackGroupMessage(item, data.cursor);
         observeMessage(item, data.cursor);
         item.cursor = data.cursor;
         item.activity = data.activity || null;
@@ -138,7 +140,11 @@
     if (!viewInitialized || initialSnapshotPending) cursors.clear();
     for (const item of items) observeMessage(item, item.cursor);
 
+    for (const item of items) {
+      if (newMetadata.has(item.id)) trackGroupMessage(item, item.cursor, newMetadata.get(item.id)?.cursor);
+    }
     newMetadata = new Map(items.map(item => [item.id, item]));
+    for (const id of pendingGroupMessages) if (!newMetadata.has(id)) pendingGroupMessages.delete(id);
     for (const id of cursors.keys()) if (!newMetadata.has(id)) cursors.delete(id);
     newQueue = items.map(({ id, protocol, company, tags }) => ({ id, protocol, company, silent: OpaTagSettings.isAssumedOnly(tags) }));
     if (!viewInitialized && personalListAvailable()) {
@@ -266,6 +272,12 @@
     chrome.runtime.sendMessage({ type: 'CLIENT_MESSAGE', attendance, openAttendance: openAttendance(), tags: item.tags || [], cursor: token, text: cursor.text || '', legacy }).catch(console.warn);
   }
 
+  function trackGroupMessage(item, cursor, previous = item?.cursor) {
+    if (!settings.groupByTag || !viewInitialized || initialSnapshotPending || !cursor?.id || cursor.id === previous?.id) return;
+    if (cursor.incoming && !isOpenAttendance(item)) pendingGroupMessages.add(item.id);
+    else pendingGroupMessages.delete(item.id);
+  }
+
   function legacyQueueRoot() {
     if (!isOngoingAttendancesModuleActive()) return null;
     const selected = document.querySelector('button[data-id="meus_atendimentos"].selected_filtro_user_status');
@@ -293,14 +305,18 @@
       cursors.clear();
       visibleCandidates.clear();
       visibleBaseline.clear();
+      pendingGroupMessages.clear();
       viewInitialized = false;
       return;
     }
     const grouping = settings.groupByTag;
-    if (!grouping) groups?.clear();
+    if (!grouping) { groups?.clear(); pendingGroupMessages.clear(); }
     if (!modern) clearInactivityLabels();
     const rows = [];
     if (modern) {
+      for (const id of pendingGroupMessages) {
+        if (isOpenAttendance(newMetadata.get(id) || { id })) pendingGroupMessages.delete(id);
+      }
       const cards = [...root.querySelectorAll('[itemid]')];
       const mounted = new Set(cards.map(cardId));
       // A server-side departure can precede removal of the old card by React.
@@ -321,7 +337,8 @@
             const tags = card.getAttribute('data-tag-names');
             rows.push({
               id, node, tags: tags == null ? item?.tags || [] : tags.split('|').filter(Boolean),
-              unread: item?.unread === true, pinned: item?.pinned === true
+              unread: !isOpenAttendance(item || { id }) && (item?.unread === true || pendingGroupMessages.has(id)),
+              pinned: item?.pinned === true
             });
           }
         }
@@ -627,7 +644,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'OPA_NOTIFY_CONTENT_PING') {
-      sendResponse({ success: true, ready: true, version: '2.0.7' });
+      sendResponse({ success: true, ready: true, version: '2.0.8' });
       return false;
     }
 
@@ -651,7 +668,7 @@
     if (!isSupportPage) return false;
 
     if (message?.type === 'GET_MONITOR_DIAGNOSTICS') {
-      sendResponse({ success: true, version: '2.0.7', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
+      sendResponse({ success: true, version: '2.0.8', interface: isNewInterface() ? 'new' : 'legacy', personalQueue: isOngoingAttendancesModuleActive(), completeQueueReady: newQueue !== null, completeQueueCount: newQueue?.length ?? null, lastCompleteQueueAt: lastCompleteQueueAt || null, completeQueueAgeMs: lastCompleteQueueAt ? Date.now() - lastCompleteQueueAt : null, initialSnapshotPending, visibleUnknownCount: visibleCandidates.size, refresh: queueRefreshState, awaitingDepartureConfirmation: confirmationRefreshPending, events: queueDiagnostics });
       return false;
     }
 

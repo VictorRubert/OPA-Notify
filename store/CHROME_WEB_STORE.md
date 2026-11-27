@@ -33,12 +33,12 @@ O Termofy não exige conta própria e não envia o conteúdo dos atendimentos a 
 
 ## Pacote para upload
 
-Use **`Termofy-v2.0.7-ChromeWebStore.zip`**. Ele é gerado a partir do ZIP da versão 2.0.7 já testada, com `manifest.json` na raiz e sem `termostato/manifest.json`, testes ou documentação interna. Os scripts e estilos do Termostato continuam no pacote; a pasta original do repositório não é alterada.
+Use **`Termofy-v2.0.8-ChromeWebStore.zip`**. Ele é gerado a partir do ZIP da versão 2.0.8, com `manifest.json` na raiz e sem `termostato/manifest.json`, testes ou documentação interna. Os scripts e estilos do Termostato continuam no pacote; a pasta original do repositório não é alterada.
 
 Para recriar o pacote:
 
 ```sh
-python3 store/build-store-package.py /workspace/releases/Termofy-v2.0.7.zip /workspace/releases/Termofy-v2.0.7-ChromeWebStore.zip
+python3 store/build-store-package.py /workspace/releases/Termofy-v2.0.8.zip /workspace/releases/Termofy-v2.0.8-ChromeWebStore.zip
 ```
 
 Envie o arquivo ZIP diretamente. Não compacte a pasta que contém o ZIP.

@@ -115,9 +115,17 @@ async function run(browser, modernUI) {
     await queue(page, changed);
     assert.equal(await count(), 0);
     await page.locator('[data-customer-service-id=chat-1]').evaluate(el=>el.remove());
-    const next = [{ ...rows[0], lastMessage: { ...incoming, _id:'customer-next' } }, rows[1]];
+    const next = [{ ...rows[0], lastMessage: { ...incoming, _id:'customer-next', statusEnvio:{status:'read'} } }, rows[1]];
     await queue(page, next);
     assert.equal(await count(), 1);
+    const unreadDot = head.locator('.opa-groups-dot');
+    assert.equal(await unreadDot.count(),1);
+    const dotColor = await unreadDot.evaluate(el=>getComputedStyle(el).color);
+    assert(['rgb(255, 155, 39)','rgb(180, 83, 9)'].includes(dotColor));
+    assert.equal(await unreadDot.evaluate(el=>getComputedStyle(el).animationName),'opa-groups-pulse');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await unreadDot.evaluate(el=>getComputedStyle(el).animationName),'none');
+    await page.emulateMedia({reducedMotion:'no-preference'});
     await queue(page, next);
     assert.equal(await page.evaluate(()=>sent.find(m=>m.type==='CLIENT_MESSAGE').text),'Olá, preciso de ajuda');
     await page.evaluate(data => socket.receive('42' + JSON.stringify(['message-update', data])), { ...incoming, _id:'customer-2', id_rota:'chat-1' });
@@ -161,6 +169,12 @@ async function run(browser, modernUI) {
   await messageCard.click();
   assert.equal(await page.evaluate(()=>window.opened),'chat-1');
   assert.equal(await head.getAttribute('aria-expanded'),'true');
+  if (modernUI) {
+    await page.locator('[data-tutorial=customer-service-list]').evaluate(el=>el.insertAdjacentHTML('afterend','<div data-customer-service-id="chat-1" data-protocol="OPA100001"></div>'));
+    await page.evaluate(()=>call({type:'BACKGROUND_ATTENDANCE_SCAN'}));
+    assert.equal(await head.locator('.opa-groups-dot').count(),0);
+    await page.locator('[data-customer-service-id=chat-1]').evaluate(el=>el.remove());
+  }
   await page.evaluate(m=>call(m),{...alert,sourceTabId:42});
   await page.locator('.toast').first().click();
   assert(await page.evaluate(()=>sent.some(m=>m.type==='OPEN_SOURCE_ATTENDANCE' && m.sourceTabId===42 && m.attendance.id==='chat-1')));

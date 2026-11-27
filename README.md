@@ -1,4 +1,4 @@
-# Termofy v2.0.7
+# Termofy v2.0.8
 
 Extensão Chrome que avisa quando um atendimento entra ou sai de **Meus atendimentos** no [Opa! Suite](https://suporte.ixcsoft.com.br/).
 
@@ -41,6 +41,7 @@ O popup reúne o estado da fila, os cinco atendimentos recentes e atalhos para N
 - **Notificações:** ativação, aviso visual, duração de 5 a 30 segundos, posição em um dos quatro cantos (padrão: superior esquerdo), avisos em outras abas, notificações do sistema e aviso de atendimento finalizado. Os canais podem ser ativados ou desativados separadamente.
 - **Avisar novas mensagens do cliente** vem ligado para todos os atendimentos nas novas instalações. A atualização respeita a preferência já salva. Escolha todos os atendimentos ou somente etiquetas prioritárias. Na interface nova, a extensão lê o identificador e a direção da mensagem quando o Opa os disponibiliza. Se várias mensagens chegam entre duas leituras e o Opa expõe apenas a última, pode haver um único aviso. O cartão mostra a empresa e o texto recebido; fotos, áudios e vídeos aparecem como “Enviou uma foto”, “Enviou um áudio” e “Enviou um vídeo”. Avisos de mensagem não tocam som nem geram notificações do sistema. Quando o Opa não disponibiliza o texto, mostra “Mensagem recebida”. Na antiga, a extensão acompanha o indicador de não lida e o contador quando disponível.
 - **Agrupar por etiqueta** começa desligado. Ao ativar, **Somente as listadas** já vem preenchido. A fila usa as etiquetas **AGENTE SMITH** na ordem **AJUDA → FINALIZADO → AJUDANDO → PAUSA → ASSUMIDO**, de cima para baixo. Os demais atendimentos ficam em **Sem grupo**. Você pode editar as listas e a ordem no popup.
+- Os cabeçalhos dos grupos mostram um ponto laranja pulsante quando uma conversa do grupo recebe mensagem do cliente. O ponto some ao abrir a conversa; com movimento reduzido no sistema, ele fica estático.
 - **Visual:** destaque roxo, tipo de preenchimento.
 - **Som:** escolha do áudio, arquivo personalizado e volume.
 - **Termostato:** humor do cliente e pendência externa automática na interface nova. Os dois recursos começam ligados e podem ser desativados separadamente. Desativar Termofy também pausa o Termostato. O humor analisa as cinco últimas mensagens carregadas da conversa aberta; os outros cartões mostram o último resultado salvo. A pendência segue as regras originais de tempo (5 minutos a 8 horas), etiquetas e estado manual. Sem “Nesta fila”, utiliza a abertura como referência.

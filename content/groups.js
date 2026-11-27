@@ -15,12 +15,14 @@
     .opa-groups-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
     .opa-groups-count { flex:none;min-width:19px;text-align:center;padding:2px 6px;border-radius:5px;background:#5d422b;font-size:10px;font-variant-numeric:tabular-nums }
     [data-subgroup] > .opa-groups-count { background:#344254 }
-    .opa-groups-dot { color:#ffd08b;font-size:10px }
+    .opa-groups-dot { flex:none;color:#ff9b27;font-size:15px;line-height:1;animation:opa-groups-pulse 1.6s ease-in-out infinite }
+    @keyframes opa-groups-pulse { 0%,100% { opacity:.72;transform:scale(.82);text-shadow:0 0 0 transparent } 50% { opacity:1;transform:scale(1.18);text-shadow:0 0 8px #ff9b27 } }
+    @media (prefers-reduced-motion: reduce) { .opa-groups-dot { animation:none } }
     [data-opa-groups-theme="light"] .opa-groups-head { background:#f1f3f6;color:#854500;border-color:#d4dbe5 }
     [data-opa-groups-theme="light"] .opa-groups-head[data-subgroup] { background:#e8edf4;color:#35465f;border-color:#cbd5e1 }
     [data-opa-groups-theme="light"] .opa-groups-count { background:#f8ddb4;color:#704000 }
     [data-opa-groups-theme="light"] [data-subgroup] > .opa-groups-count { background:#d5dfec;color:#35465f }
-    [data-opa-groups-theme="light"] .opa-groups-dot { color:#935000 }
+    [data-opa-groups-theme="light"] .opa-groups-dot { color:#b45309 }
     [data-opa-groups-theme="light"] .opa-groups-head:hover { filter:brightness(.97) }
     .opa-groups-viewport { overflow-y:auto!important;overflow-anchor:none;min-height:0 }
     .opa-groups-clip { height:var(--opa-layout-height,auto)!important;overflow:clip!important;flex:none!important }
@@ -240,7 +242,11 @@
             head.setAttribute('aria-expanded', String(expanded));
             head.setAttribute('aria-label', group.label + ' (' + group.count + ')' + (group.unread ? ', mensagem não lida' : ''));
             head.append(element('span', 'opa-groups-arrow'), element('span', 'opa-groups-name', group.label));
-            if (group.unread) head.append(element('span', 'opa-groups-dot', '●'));
+            if (group.unread) {
+              const dot = element('span', 'opa-groups-dot', '●');
+              dot.setAttribute('aria-hidden', 'true');
+              head.append(dot);
+            }
             head.append(element('span', 'opa-groups-count', group.count));
             head.onclick = () => {
               if (expanded) this.collapsed.add(group.path); else this.collapsed.delete(group.path);
